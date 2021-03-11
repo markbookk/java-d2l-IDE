@@ -12,6 +12,8 @@ import ai.djl.training.DefaultTrainingConfig;
 import ai.djl.training.GradientCollector;
 import ai.djl.training.ParameterStore;
 import ai.djl.training.Trainer;
+import ai.djl.training.dataset.Batch;
+import ai.djl.training.dataset.RandomAccessDataset;
 import ai.djl.training.evaluator.Accuracy;
 import ai.djl.training.initializer.NormalInitializer;
 import ai.djl.training.listener.TrainingListener;
@@ -19,6 +21,7 @@ import ai.djl.training.loss.Loss;
 import ai.djl.training.loss.SoftmaxCrossEntropyLoss;
 import ai.djl.training.optimizer.Optimizer;
 import ai.djl.training.tracker.Tracker;
+import ai.djl.translate.TranslateException;
 import ai.djl.util.Pair;
 
 import java.io.BufferedReader;
@@ -166,13 +169,13 @@ public class TimeMachine {
     /** Train a model. */
     public static void trainCh8(
             Object net,
-            List<NDList> trainIter,
+            RandomAccessDataset dataset,
             Vocab vocab,
             int lr,
             int numEpochs,
             Device device,
             boolean useRandomIter,
-            NDManager manager) {
+            NDManager manager) throws IOException, TranslateException {
         SoftmaxCrossEntropyLoss loss = new SoftmaxCrossEntropyLoss();
         //        Animator animator = new Animator();
 
@@ -213,7 +216,7 @@ public class TimeMachine {
         for (int epoch = 0; epoch < numEpochs; epoch++) {
             //            System.out.println("Epoch: " + epoch);
             Pair<Double, Double> pair =
-                    trainEpochCh8(net, trainIter, loss, updater, device, useRandomIter, manager);
+                    trainEpochCh8(net, dataset, loss, updater, device, useRandomIter, manager);
             ppl = pair.getKey();
             speed = pair.getValue();
             if ((epoch + 1) % 10 == 0) {
@@ -233,22 +236,23 @@ public class TimeMachine {
     /** Train a model within one epoch. */
     public static Pair<Double, Double> trainEpochCh8(
             Object net,
-            List<NDList> trainIter,
+            RandomAccessDataset dataset,
             Loss loss,
             Functions.voidTwoFunction<Integer, NDManager> updater,
             Device device,
             boolean useRandomIter,
-            NDManager manager) {
+            NDManager manager) throws IOException, TranslateException {
         StopWatch watch = new StopWatch();
         watch.start();
         Accumulator metric = new Accumulator(2); // Sum of training loss, no. of tokens
 
         try (NDManager childManager = manager.newSubManager()) {
             NDArray state = null;
-            for (NDList pair : trainIter) {
-                NDArray X = pair.get(0).toDevice(Functions.tryGpu(0), true);
+//            for (NDList pair : trainIter) {
+            for (Batch batch : dataset.getData(manager)) {
+                NDArray X = batch.getData().head().toDevice(Functions.tryGpu(0), true);
                 X.attach(childManager);
-                NDArray Y = pair.get(1).toDevice(Functions.tryGpu(0), true);
+                NDArray Y = batch.getLabels().head().toDevice(Functions.tryGpu(0), true);
                 Y.attach(childManager);
                 if (state == null || useRandomIter) {
                     // Initialize `state` when either it is the first iteration or

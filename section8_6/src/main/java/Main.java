@@ -6,9 +6,6 @@ import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
 import ai.djl.nn.recurrent.RNN;
 import ai.djl.training.ParameterStore;
-import ai.djl.util.Pair;
-
-import java.util.ArrayList;
 
 public class Main {
     public static NDManager manager;
@@ -19,10 +16,15 @@ public class Main {
         int batchSize = 32;
         int numSteps = 35;
 
-        Pair<ArrayList<NDList>, Vocab> timeMachine =
-                SeqDataLoader.loadDataTimeMachine(batchSize, numSteps, true, 10000, manager);
-        ArrayList<NDList> trainIter = timeMachine.getKey();
-        Vocab vocab = timeMachine.getValue();
+//        Pair<ArrayList<NDList>, Vocab> timeMachine =
+//                SeqDataLoader.loadDataTimeMachine(batchSize, numSteps, true, 10000, manager);
+//        ArrayList<NDList> trainIter = timeMachine.getKey();
+//        Vocab vocab = timeMachine.getValue();
+        TimeMachineDataset dataset = new TimeMachineDataset.Builder()
+                .setManager(manager).setMaxTokens(10000).setSampling(batchSize, false)
+                .setSteps(numSteps).build();
+        dataset.prepare();
+        Vocab vocab = dataset.getVocab();
 
         int numHiddens = 256;
         RNN rnnLayer = RNN.builder().setNumLayers(1)
@@ -51,7 +53,7 @@ public class Main {
 
         int numEpochs = 500;
         int lr = 1;
-        TimeMachine.trainCh8((Object) net, trainIter, vocab, lr, numEpochs, device, false, manager);
+        TimeMachine.trainCh8((Object) net, dataset, vocab, lr, numEpochs, device, false, manager);
 
         System.out.println("debug");
     }
