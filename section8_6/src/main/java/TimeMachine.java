@@ -220,9 +220,9 @@ public class TimeMachine {
                 //                animator.add(epoch + 1, (float) ppl, "ppl");
                 //                animator.show();
             }
-            //            System.out.format(
-            //                    "perplexity: %.1f, %.1f tokens/sec on %s%n", ppl, speed,
-            // device.toString());
+                        System.out.format(
+                                "epoch: %d, perplexity: %.1f, %.1f tokens/sec on %s%n", epoch, ppl, speed,
+             device.toString());
         }
         System.out.format(
                 "perplexity: %.1f, %.1f tokens/sec on %s%n", ppl, speed, device.toString());

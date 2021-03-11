@@ -38,11 +38,6 @@ public class SeqDataLoader implements Iterable<NDList> {
         }
     }
 
-    @Override
-    public Iterator<NDList> iterator() {
-        return dataIter.iterator();
-    }
-
     /** Return the iterator and the vocabulary of the time machine dataset. */
     public static Pair<ArrayList<NDList>, Vocab> loadDataTimeMachine(
             int batchSize, int numSteps, boolean useRandomIter, int maxTokens, NDManager manager)
@@ -51,6 +46,11 @@ public class SeqDataLoader implements Iterable<NDList> {
         SeqDataLoader seqData =
                 new SeqDataLoader(batchSize, numSteps, useRandomIter, maxTokens, manager);
         return new Pair(seqData.dataIter, seqData.vocab); // ArrayList<NDList>, Vocab
+    }
+
+    @Override
+    public Iterator<NDList> iterator() {
+        return dataIter.iterator();
     }
 
     /** Generate a minibatch of subsequences using random sampling. */
@@ -81,16 +81,16 @@ public class SeqDataLoader implements Iterable<NDList> {
 
             NDArray xNDArray =
                     manager.create(
-                            new Shape(initialIndicesPerBatch.size(), numSteps), DataType.FLOAT32);
+                            new Shape(initialIndicesPerBatch.size(), numSteps), DataType.INT32);
             NDArray yNDArray =
                     manager.create(
-                            new Shape(initialIndicesPerBatch.size(), numSteps), DataType.FLOAT32);
-            for (int j = 0; j < initialIndicesPerBatch.size(); j++) {
+                            new Shape(initialIndicesPerBatch.size(), numSteps), DataType.INT32);
+            for (int j = 0; j < initialIndicesPerBatch.size() - 1; j++) {
                 ArrayList<Integer> X = data(initialIndicesPerBatch.get(j), corpus, numSteps);
                 xNDArray.set(
                         new NDIndex(j),
                         manager.create(X.stream().mapToInt(Integer::intValue).toArray()));
-                ArrayList<Integer> Y = data(initialIndicesPerBatch.get(j) + 1, corpus, numSteps);
+                ArrayList<Integer> Y = data(initialIndicesPerBatch.get(j + 1), corpus, numSteps);
                 yNDArray.set(
                         new NDIndex(j),
                         manager.create(Y.stream().mapToInt(Integer::intValue).toArray()));

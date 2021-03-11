@@ -65,7 +65,8 @@ public class Main {
         SoftmaxCrossEntropyLoss loss = new SoftmaxCrossEntropyLoss();
         //            Animator animator = new Animator();
         // Initialize
-        voidFunction<Integer> updater = (batchSize) -> Training.sgd(net.params, lr, batchSize);
+        voidTwoFunction<Integer, NDManager> updater =
+                (batchSize, subManager) -> Training.sgd(net.params, lr, batchSize, subManager);
         Function<String, String> predict = (prefix) -> predictCh8(prefix, 50, net, vocab, device);
         // Train and predict
         double ppl = 0.0;
@@ -78,6 +79,8 @@ public class Main {
             if ((epoch + 1) % 10 == 0) {
                 //                    animator.add(epoch + 1, (float) ppl, "");
             }
+            System.out.format(
+                    "epochs: %d, perplexity: %.1f, %.1f tokens/sec on %s%n", epoch, ppl, speed, device.toString());
         }
         System.out.format(
                 "perplexity: %.1f, %.1f tokens/sec on %s%n", ppl, speed, device.toString());
@@ -90,60 +93,64 @@ public class Main {
             RNNModelScratch net,
             List<NDList> trainIter,
             Loss loss,
-            voidFunction<Integer> updater,
+            voidTwoFunction<Integer, NDManager> updater,
             Device device,
             boolean useRandomIter) {
-        NDArray state = null;
         StopWatch watch = new StopWatch();
         watch.start();
         Accumulator metric = new Accumulator(2); // Sum of training loss, no. of tokens
-        for (NDList pair : trainIter) {
-            NDArray X = pair.get(0);
-            NDArray Y = pair.get(1);
-            if (state == null || useRandomIter) {
-                // Initialize `state` when either it is the first iteration or
-                // using random sampling
-                state = net.beginState((int) X.getShape().getShape()[0], device);
-            } else {
+        try (NDManager childManager = manager.newSubManager()) {
+            NDArray state = null;
+            for (NDList pair : trainIter) {
+                NDArray X = pair.get(0).toDevice(Functions.tryGpu(0), true);
+                X.attach(childManager);
+                NDArray Y = pair.get(1).toDevice(Functions.tryGpu(0), true);
+                Y.attach(childManager);
+                if (state == null || useRandomIter) {
+                    // Initialize `state` when either it is the first iteration or
+                    // using random sampling
+                    state = net.beginState((int) X.getShape().getShape()[0], device);
+                } else {
+                    state.stopGradient();
+                }
+                state.attach(childManager);
 
+                NDArray y = Y.transpose().reshape(new Shape(-1));
+                X = X.toDevice(device, false);
+                y = y.toDevice(device, false);
+                try (GradientCollector gc = Engine.getInstance().newGradientCollector()) {
+                    Pair<NDArray, NDArray> pairResult = net.call(X, state);
+                    NDArray yHat = pairResult.getKey();
+                    state = pairResult.getValue();
+                    NDArray l = loss.evaluate(new NDList(y), new NDList(yHat)).mean();
+                    gc.backward(l);
+                    metric.add(new float[] {l.getFloat() * y.size(), y.size()});
+                }
+                gradClipping(net, 1, childManager);
+                updater.apply(1, childManager); // Since the `mean` function has been invoked
             }
-
-            NDArray y = Y.transpose().reshape(new Shape(-1));
-            X = X.toDevice(device, false);
-            y = y.toDevice(device, false);
-            try (GradientCollector gc = Engine.getInstance().newGradientCollector()) {
-                NDArray temp = state.stopGradient();
-                state.detach();
-                Pair<NDArray, NDArray> pairResult = net.call(X, temp);
-                NDArray yHat = pairResult.getKey();
-                state = pairResult.getValue();
-                NDArray l = loss.evaluate(new NDList(y), new NDList(yHat)).mean();
-                gc.backward(l);
-                metric.add(new float[] {l.getFloat() * y.size(), y.size()});
-                l.close();
-            }
-            gradClipping(net, 1);
-            updater.apply(1); // Since the `mean` function has been invoked
         }
         return new Pair(Math.exp(metric.get(0) / metric.get(1)), metric.get(1) / watch.stop());
     }
 
     /** Clip the gradient. */
-    public static void gradClipping(RNNModelScratch net, int theta) {
+    public static void gradClipping(RNNModelScratch net, int theta, NDManager manager) {
         double result = 0;
         for (NDArray p : net.params) {
-            result += p.getGradient().pow(2).sum().getFloat();
+            NDArray gradient = p.getGradient();
+            gradient.attach(manager);
+            result += gradient.pow(2).sum().getFloat();
         }
         double norm = Math.sqrt(result);
         if (norm > theta) {
             for (NDArray param : net.params) {
                 NDArray gradient = param.getGradient();
-                gradient.set(new NDIndex(":"), theta / norm);
+                gradient.muli(theta / norm);
             }
         }
     }
 
-    /** Generate new characters following the `prefix`.""" */
+    /** Generate new characters following the `prefix`. */
     public static String predictCh8(
             String prefix, int numPreds, RNNModelScratch net, Vocab vocab, Device device) {
         NDArray state = net.beginState(1, device);
@@ -246,6 +253,11 @@ public class Main {
     @FunctionalInterface
     public interface voidFunction<T> {
         public void apply(T t);
+    }
+
+    @FunctionalInterface
+    public interface voidTwoFunction<T, U> {
+        public void apply(T t, U u);
     }
 
     /** Return the iterator and the vocabulary of the time machine dataset. */
