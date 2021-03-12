@@ -29,14 +29,16 @@ public class Main {
         int numHiddens = 256;
         RNN rnnLayer = RNN.builder().setNumLayers(1)
                 .setStateSize(numHiddens).optReturnState(true).optBatchFirst(false).build();
-//        rnnLayer.initialize(manager, DataType.FLOAT32, new Shape(numSteps, batchSize, vocab.length()));
+//        rnnLayer.setInitializer(Initializer.ZEROS, Parameter.Type.WEIGHT);
+        rnnLayer.initialize(manager, DataType.FLOAT32, new Shape(numSteps, batchSize, vocab.length()));
 
 
         NDList state = beginState(batchSize, 1, numHiddens);
         System.out.println(state.size());
         System.out.println(state.get(0).getShape());
 
-        NDArray X = manager.randomUniform (0, 1,new Shape(numSteps, batchSize, vocab.length()));
+        NDArray X = manager.randomUniform(0, 1,new Shape(numSteps, batchSize, vocab.length()));
+        X = manager.zeros(new Shape(numSteps, batchSize, vocab.length()));
 
         NDList forwardOutput = rnnLayer.forward(new ParameterStore(manager, false), new NDList(X, state.get(0)), false);
         NDArray Y = forwardOutput.get(0);

@@ -42,8 +42,30 @@ public class RNNModel extends AbstractBlock {
     @Override
     public void initializeChildBlocks(NDManager manager, DataType dataType, Shape... inputShapes) {
         /* rnnLayer is already initialized so we don't have to do anything here, just override it.*/
-        return;
+//        rnnLayer.clear();
+//        rnnLayer.setInitializer(Initializer.ZEROS, Parameter.Type.WEIGHT);
+//        rnnLayer.setInitializer(Initializer.ZEROS, Parameter.Type.BIAS);
+//
+//        dense.clear();
+//        dense.setInitializer(Initializer.ZEROS, Parameter.Type.WEIGHT);
+//        dense.setInitializer(Initializer.ZEROS, Parameter.Type.BIAS);
     }
+
+//        List<Block> childs = getChildren().values();
+//        for (Block child : childs) {
+//            for (Parameter parameter : child.getParameters().values()) {
+//                parameter.setInitializer(new UniformInitializer());
+//            }
+//        }
+//        rnnLayer.clear();
+//        rnnLayer.initialize(manager, dataType, inputShapes);
+//
+//        inputShapes = rnnLayer.getOutputShapes(inputShapes);
+//        int shapeLength = inputShapes[0].getShape().length;
+//        Shape linearShape = new Shape(-1, inputShapes[0].get(shapeLength-1));
+//        dense.clear();
+//        dense.initialize(manager, dataType, linearShape);
+//    }
 
     @Override
     protected NDList forwardInternal(ParameterStore parameterStore, NDList inputs, boolean training, PairList<String, Object> params) {

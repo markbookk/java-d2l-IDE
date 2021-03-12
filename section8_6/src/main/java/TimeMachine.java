@@ -15,7 +15,7 @@ import ai.djl.training.Trainer;
 import ai.djl.training.dataset.Batch;
 import ai.djl.training.dataset.RandomAccessDataset;
 import ai.djl.training.evaluator.Accuracy;
-import ai.djl.training.initializer.NormalInitializer;
+import ai.djl.training.initializer.Initializer;
 import ai.djl.training.listener.TrainingListener;
 import ai.djl.training.loss.Loss;
 import ai.djl.training.loss.SoftmaxCrossEntropyLoss;
@@ -191,14 +191,15 @@ public class TimeMachine {
             Model model = Model.newInstance("model");
             model.setBlock(castedNet);
 
-            Tracker lrt = Tracker.fixed(0.1f);
+            Tracker lrt = Tracker.fixed(lr);
             Optimizer sgd = Optimizer.sgd().setLearningRateTracker(lrt).build();
 
             DefaultTrainingConfig config =
                     new DefaultTrainingConfig(loss)
                             .optOptimizer(sgd) // Optimizer (loss function)
                             .optInitializer(
-                                    new NormalInitializer(0.01f),
+//                                    new NormalInitializer(0.01f),
+                                        Initializer.ZEROS,
                                     Parameter.Type.WEIGHT) // setting the initializer
                             .optDevices(Device.getDevices(1)) // setting the number of GPUs needed
                             .addEvaluator(new Accuracy()) // Model Accuracy

@@ -2,6 +2,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -62,7 +63,7 @@ public class Vocab {
     /** Count token frequencies. */
     public HashMap<String, Integer> countCorpus(String[] tokens) {
 
-        HashMap<String, Integer> counter = new HashMap<>();
+        HashMap<String, Integer> counter = new LinkedHashMap<>();
         if (tokens.length != 0) {
             for (String token : tokens) {
                 counter.put(token, counter.getOrDefault(token, 0) + 1);
