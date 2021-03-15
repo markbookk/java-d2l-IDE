@@ -4,7 +4,6 @@ import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDArrays;
 import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.NDManager;
-import ai.djl.ndarray.index.NDIndex;
 import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
 import ai.djl.training.GradientCollector;
@@ -41,7 +40,7 @@ public class Main {
                 new RNNModelScratch(
                         vocab.length(), numHiddens, tryGpu(0), getParamsFn, initRNNStateFn, rnnFn);
         NDArray state = net.beginState((int) X.getShape().getShape()[0], tryGpu(0));
-        Pair<NDArray, NDArray> pairResult = net.call(X.toDevice(tryGpu(0), false), state);
+        Pair<NDArray, NDArray> pairResult = net.forward(X.toDevice(tryGpu(0), false), state);
         NDArray Y = pairResult.getKey();
         NDArray newState = pairResult.getValue();
         System.out.println(Y.getShape());
@@ -119,7 +118,7 @@ public class Main {
                 X = X.toDevice(device, false);
                 y = y.toDevice(device, false);
                 try (GradientCollector gc = Engine.getInstance().newGradientCollector()) {
-                    Pair<NDArray, NDArray> pairResult = net.call(X, state);
+                    Pair<NDArray, NDArray> pairResult = net.forward(X, state);
                     NDArray yHat = pairResult.getKey();
                     state = pairResult.getValue();
                     NDArray l = loss.evaluate(new NDList(y), new NDList(yHat)).mean();
@@ -130,7 +129,7 @@ public class Main {
                 updater.apply(1, childManager); // Since the `mean` function has been invoked
             }
         }
-        return new Pair(Math.exp(metric.get(0) / metric.get(1)), metric.get(1) / watch.stop());
+        return new Pair<>(Math.exp(metric.get(0) / metric.get(1)), metric.get(1) / watch.stop());
     }
 
     /** Clip the gradient. */
@@ -162,23 +161,23 @@ public class Main {
                                 .toDevice(device, false)
                                 .reshape(new Shape(1, 1));
         for (char c : prefix.substring(1).toCharArray()) { // Warm-up period
-            state = (NDArray) net.call(getInput.apply(), state).getValue();
+            state = (NDArray) net.forward(getInput.apply(), state).getValue();
             outputs.add(vocab.getIdx("" + c));
         }
 
         NDArray y;
         for (int i = 0; i < numPreds; i++) {
-            Pair<NDArray, NDArray> pair = net.call(getInput.apply(), state);
+            Pair<NDArray, NDArray> pair = net.forward(getInput.apply(), state);
             y = pair.getKey();
             state = pair.getValue();
 
             outputs.add((int) y.argMax(1).reshape(new Shape(1)).getLong(0L));
         }
-        String outputString = "";
+        StringBuilder output = new StringBuilder();
         for (int i : outputs) {
-            outputString += vocab.idxToToken.get(i);
+            output.append(vocab.idxToToken.get(i));
         }
-        return outputString;
+        return output.toString();
     }
 
     /** Return the i'th GPU if it exists, otherwise return the CPU */
@@ -222,8 +221,8 @@ public class Main {
         NDList outputs = new NDList();
         // Shape of `X`: (`batchSize`, `vocabSize`)
         NDArray X, Y;
-        for (int i = 0; i < inputs.getShape().getShape()[0]; i++) {
-            X = inputs.get(new NDIndex(i));
+        for (int i = 0; i < inputs.size(0); i++) {
+            X = inputs.get(i);
             H = (X.dot(W_xh).add(H.dot(W_hh)).add(b_h)).tanh();
             Y = H.dot(W_hq).add(b_q);
             outputs.add(Y);

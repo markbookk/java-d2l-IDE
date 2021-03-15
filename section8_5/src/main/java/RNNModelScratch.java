@@ -25,7 +25,7 @@ public class RNNModelScratch {
         this.forwardFn = forwardFn;
     }
 
-    public Pair call(NDArray X, NDArray state) {
+    public Pair forward(NDArray X, NDArray state) {
         X = X.transpose().oneHot(this.vocabSize);
         return this.forwardFn.apply(X, state, this.params);
     }
