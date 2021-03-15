@@ -66,7 +66,7 @@ public class TimeMachineDataset extends RandomAccessDataset {
         // Start with a random offset (inclusive of `numSteps - 1`) to partition a
         // sequence
         int offset = new Random().nextInt(numSteps);
-        int numTokens = ((int) (corpus.size() - offset - 1) / batchSize) * batchSize;
+        int numTokens = ((int) ((corpus.size() - offset - 1) / batchSize)) * batchSize;
         NDArray Xs =
                 manager.create(
                         corpus.subList(offset, offset + numTokens).stream()

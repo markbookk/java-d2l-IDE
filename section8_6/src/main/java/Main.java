@@ -17,7 +17,7 @@ public class Main {
         int numSteps = 35;
 
 //        Pair<ArrayList<NDList>, Vocab> timeMachine =
-//                SeqDataLoader.loadDataTimeMachine(batchSize, numSteps, true, 10000, manager);
+//                SeqDataLoader.loadDataTimeMachine(batchSize, numSteps, false, 10000, manager);
 //        ArrayList<NDList> trainIter = timeMachine.getKey();
 //        Vocab vocab = timeMachine.getValue();
         TimeMachineDataset dataset = new TimeMachineDataset.Builder()

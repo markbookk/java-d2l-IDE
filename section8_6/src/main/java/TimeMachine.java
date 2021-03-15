@@ -175,7 +175,8 @@ public class TimeMachine {
             int numEpochs,
             Device device,
             boolean useRandomIter,
-            NDManager manager) throws IOException, TranslateException {
+            NDManager manager)
+            throws IOException, TranslateException {
         SoftmaxCrossEntropyLoss loss = new SoftmaxCrossEntropyLoss();
         //        Animator animator = new Animator();
 
@@ -191,7 +192,7 @@ public class TimeMachine {
             Model model = Model.newInstance("model");
             model.setBlock(castedNet);
 
-            Tracker lrt = Tracker.fixed(0.1f);
+            Tracker lrt = Tracker.fixed(lr);
             Optimizer sgd = Optimizer.sgd().setLearningRateTracker(lrt).build();
 
             DefaultTrainingConfig config =
@@ -214,7 +215,6 @@ public class TimeMachine {
         double ppl = 0.0;
         double speed = 0.0;
         for (int epoch = 0; epoch < numEpochs; epoch++) {
-            //            System.out.println("Epoch: " + epoch);
             Pair<Double, Double> pair =
                     trainEpochCh8(net, dataset, loss, updater, device, useRandomIter, manager);
             ppl = pair.getKey();
@@ -223,9 +223,9 @@ public class TimeMachine {
                 //                animator.add(epoch + 1, (float) ppl, "ppl");
                 //                animator.show();
             }
-                        System.out.format(
-                                "epoch: %d, perplexity: %.1f, %.1f tokens/sec on %s%n", epoch, ppl, speed,
-             device.toString());
+//            System.out.format(
+//                    "epoch: %d, perplexity: %.1f, %.1f tokens/sec on %s%n",
+//                    epoch, ppl, speed, device.toString());
         }
         System.out.format(
                 "perplexity: %.1f, %.1f tokens/sec on %s%n", ppl, speed, device.toString());
@@ -241,14 +241,14 @@ public class TimeMachine {
             Functions.voidTwoFunction<Integer, NDManager> updater,
             Device device,
             boolean useRandomIter,
-            NDManager manager) throws IOException, TranslateException {
+            NDManager manager)
+            throws IOException, TranslateException {
         StopWatch watch = new StopWatch();
         watch.start();
         Accumulator metric = new Accumulator(2); // Sum of training loss, no. of tokens
 
         try (NDManager childManager = manager.newSubManager()) {
             NDArray state = null;
-//            for (NDList pair : trainIter) {
             for (Batch batch : dataset.getData(manager)) {
                 NDArray X = batch.getData().head().toDevice(Functions.tryGpu(0), true);
                 X.attach(childManager);
@@ -301,7 +301,6 @@ public class TimeMachine {
                     }
 
                     NDArray l = loss.evaluate(new NDList(y), new NDList(yHat)).mean();
-                    //                    System.out.println("Loss: " + l.getFloat());
                     gc.backward(l);
                     metric.add(new float[] {l.getFloat() * y.size(), y.size()});
                 }
