@@ -30,21 +30,21 @@ public class Main {
 
         int numHiddens = 512;
         TriFunction<Integer, Integer, Device, NDList> getParamsFn = (a, b, c) -> getParams(a, b, c);
-        TriFunction<Integer, Integer, Device, NDArray> initRNNStateFn =
+        TriFunction<Integer, Integer, Device, NDList> initRNNStateFn =
                 (a, b, c) -> initRNNState(a, b, c);
-        TriFunction<NDArray, NDArray, NDList, Pair> rnnFn = (a, b, c) -> rnn(a, b, c);
+        TriFunction<NDArray, NDList, NDList, Pair> rnnFn = (a, b, c) -> rnn(a, b, c);
 
         NDArray X = manager.arange(10).reshape(new Shape(2, 5));
 
         RNNModelScratch net =
                 new RNNModelScratch(
                         vocab.length(), numHiddens, tryGpu(0), getParamsFn, initRNNStateFn, rnnFn);
-        NDArray state = net.beginState((int) X.getShape().getShape()[0], tryGpu(0));
-        Pair<NDArray, NDArray> pairResult = net.forward(X.toDevice(tryGpu(0), false), state);
+        NDList state = net.beginState((int) X.getShape().getShape()[0], tryGpu(0));
+        Pair<NDArray, NDList> pairResult = net.forward(X.toDevice(tryGpu(0), false), state);
         NDArray Y = pairResult.getKey();
-        NDArray newState = pairResult.getValue();
+        NDList newState = pairResult.getValue();
         System.out.println(Y.getShape());
-        System.out.println(newState.getShape());
+        System.out.println(newState.get(0).getShape());
 
         predictCh8("time traveller ", 10, net, vocab, tryGpu(0));
         int numEpochs = 500;
@@ -99,7 +99,7 @@ public class Main {
         watch.start();
         Accumulator metric = new Accumulator(2); // Sum of training loss, no. of tokens
         try (NDManager childManager = manager.newSubManager()) {
-            NDArray state = null;
+            NDList state = null;
             for (NDList pair : trainIter) {
                 NDArray X = pair.get(0).toDevice(Functions.tryGpu(0), true);
                 X.attach(childManager);
@@ -110,7 +110,9 @@ public class Main {
                     // using random sampling
                     state = net.beginState((int) X.getShape().getShape()[0], device);
                 } else {
-                    state.stopGradient();
+                    for (NDArray s : state) {
+                        s.stopGradient();
+                    }
                 }
                 state.attach(childManager);
 
@@ -118,7 +120,7 @@ public class Main {
                 X = X.toDevice(device, false);
                 y = y.toDevice(device, false);
                 try (GradientCollector gc = Engine.getInstance().newGradientCollector()) {
-                    Pair<NDArray, NDArray> pairResult = net.forward(X, state);
+                    Pair<NDArray, NDList> pairResult = net.forward(X, state);
                     NDArray yHat = pairResult.getKey();
                     state = pairResult.getValue();
                     NDArray l = loss.evaluate(new NDList(y), new NDList(yHat)).mean();
@@ -152,7 +154,7 @@ public class Main {
     /** Generate new characters following the `prefix`. */
     public static String predictCh8(
             String prefix, int numPreds, RNNModelScratch net, Vocab vocab, Device device) {
-        NDArray state = net.beginState(1, device);
+        NDList state = net.beginState(1, device);
         List<Integer> outputs = new ArrayList<>();
         outputs.add(vocab.getIdx("" + prefix.charAt(0)));
         SimpleFunction<NDArray> getInput =
@@ -161,13 +163,13 @@ public class Main {
                                 .toDevice(device, false)
                                 .reshape(new Shape(1, 1));
         for (char c : prefix.substring(1).toCharArray()) { // Warm-up period
-            state = (NDArray) net.forward(getInput.apply(), state).getValue();
+            state = (NDList) net.forward(getInput.apply(), state).getValue();
             outputs.add(vocab.getIdx("" + c));
         }
 
         NDArray y;
         for (int i = 0; i < numPreds; i++) {
-            Pair<NDArray, NDArray> pair = net.forward(getInput.apply(), state);
+            Pair<NDArray, NDList> pair = net.forward(getInput.apply(), state);
             y = pair.getKey();
             state = pair.getValue();
 
@@ -185,8 +187,8 @@ public class Main {
         return Device.getGpuCount() >= i + 1 ? Device.gpu(i) : Device.cpu();
     }
 
-    public static NDArray initRNNState(int batchSize, int numHiddens, Device device) {
-        return manager.zeros(new Shape(batchSize, numHiddens), DataType.FLOAT32, device);
+    public static NDList initRNNState(int batchSize, int numHiddens, Device device) {
+        return new NDList(manager.zeros(new Shape(batchSize, numHiddens), DataType.FLOAT32, device));
     }
 
     public static NDList getParams(int vocabSize, int numHiddens, Device device) {
@@ -209,14 +211,14 @@ public class Main {
         return params;
     }
 
-    public static Pair rnn(NDArray inputs, NDArray state, NDList params) {
+    public static Pair rnn(NDArray inputs, NDList state, NDList params) {
         // Shape of `inputs`: (`numSteps`, `batchSize`, `vocabSize`)
         NDArray W_xh = params.get(0);
         NDArray W_hh = params.get(1);
         NDArray b_h = params.get(2);
         NDArray W_hq = params.get(3);
         NDArray b_q = params.get(4);
-        NDArray H = state;
+        NDArray H = state.get(0);
 
         NDList outputs = new NDList();
         // Shape of `X`: (`batchSize`, `vocabSize`)
@@ -227,7 +229,7 @@ public class Main {
             Y = H.dot(W_hq).add(b_q);
             outputs.add(Y);
         }
-        return new Pair(outputs.size() > 1 ? NDArrays.concat(outputs) : outputs.get(0), H);
+        return new Pair(outputs.size() > 1 ? NDArrays.concat(outputs) : outputs.get(0), new NDList(H));
     }
 
     public static NDArray normal(Shape shape, Device device) {

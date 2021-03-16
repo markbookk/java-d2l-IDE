@@ -105,16 +105,16 @@ public class TimeMachine {
 
         if (net instanceof RNNModelScratch) {
             RNNModelScratch castedNet = (RNNModelScratch) net;
-            NDArray state = castedNet.beginState(1, device).get(0);
+            NDList state = castedNet.beginState(1, device);
 
             for (char c : prefix.substring(1).toCharArray()) { // Warm-up period
-                state = (NDArray) castedNet.forward(getInput.apply(), state).getValue();
+                state = (NDList) castedNet.forward(getInput.apply(), state).getValue();
                 outputs.add(vocab.getIdx("" + c));
             }
 
             NDArray y;
             for (int i = 0; i < numPreds; i++) {
-                Pair<NDArray, NDArray> pair = castedNet.forward(getInput.apply(), state);
+                Pair<NDArray, NDList> pair = castedNet.forward(getInput.apply(), state);
                 y = pair.getKey();
                 state = pair.getValue();
 
@@ -122,7 +122,7 @@ public class TimeMachine {
             }
         } else {
             AbstractBlock castedNet = (AbstractBlock) net;
-            NDArray state = null;
+            NDList state = null;
             for (char c : prefix.substring(1).toCharArray()) { // Warm-up period
                 if (state == null) {
                     // Begin state
@@ -132,15 +132,15 @@ public class TimeMachine {
                                             new ParameterStore(manager, false),
                                             new NDList(getInput.apply()),
                                             false)
-                                    .get(1);
+                                    .subNDList(1);
                 } else {
                     state =
                             castedNet
                                     .forward(
                                             new ParameterStore(manager, false),
-                                            new NDList(getInput.apply(), state),
+                                            new NDList(getInput.apply()).addAll(state),
                                             false)
-                                    .get(1);
+                                    .subNDList(1);
                 }
                 outputs.add(vocab.getIdx("" + c));
             }
@@ -150,10 +150,10 @@ public class TimeMachine {
                 NDList pair =
                         castedNet.forward(
                                 new ParameterStore(manager, false),
-                                new NDList(getInput.apply(), state),
+                                new NDList(getInput.apply()).addAll(state),
                                 false);
                 y = pair.get(0);
-                state = pair.get(1);
+                state = pair.subNDList(1);
 
                 outputs.add((int) y.argMax(1).reshape(new Shape(1)).getLong(0L));
             }
@@ -248,7 +248,7 @@ public class TimeMachine {
         Accumulator metric = new Accumulator(2); // Sum of training loss, no. of tokens
 
         try (NDManager childManager = manager.newSubManager()) {
-            NDArray state = null;
+            NDList state = null;
             for (Batch batch : dataset.getData(manager)) {
                 NDArray X = batch.getData().head().toDevice(Functions.tryGpu(0), true);
                 X.attach(childManager);
@@ -260,10 +260,12 @@ public class TimeMachine {
                     if (net instanceof RNNModelScratch) {
                         state =
                                 ((RNNModelScratch) net)
-                                        .beginState((int) X.getShape().getShape()[0], device).get(0);
+                                        .beginState((int) X.getShape().getShape()[0], device);
                     }
                 } else {
-                    state.stopGradient();
+                    for (NDArray s : state) {
+                        s.stopGradient();
+                    }
                 }
                 if (state != null) {
                     state.attach(childManager);
@@ -275,7 +277,7 @@ public class TimeMachine {
                 try (GradientCollector gc = Engine.getInstance().newGradientCollector()) {
                     NDArray yHat;
                     if (net instanceof RNNModelScratch) {
-                        Pair<NDArray, NDArray> pairResult = ((RNNModelScratch) net).forward(X, state);
+                        Pair<NDArray, NDList> pairResult = ((RNNModelScratch) net).forward(X, state);
                         yHat = pairResult.getKey();
                         state = pairResult.getValue();
                     } else {
@@ -293,11 +295,11 @@ public class TimeMachine {
                                     ((AbstractBlock) net)
                                             .forward(
                                                     new ParameterStore(manager, false),
-                                                    new NDList(X, state),
+                                                    new NDList(X).addAll(state),
                                                     true);
                         }
                         yHat = pairResult.get(0);
-                        state = pairResult.get(1);
+                        state = pairResult.subNDList(1);
                     }
 
                     NDArray l = loss.evaluate(new NDList(y), new NDList(yHat)).mean();

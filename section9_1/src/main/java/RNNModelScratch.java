@@ -9,7 +9,7 @@ public class RNNModelScratch {
     public int numHiddens;
     public NDList params;
     public Functions.TriFunction<Integer, Integer, Device, NDList> initState;
-    public Functions.TriFunction<NDArray, NDArray, NDList, Pair> forwardFn;
+    public Functions.TriFunction<NDArray, NDList, NDList, Pair> forwardFn;
 
     public RNNModelScratch(
             int vocabSize,
@@ -17,7 +17,7 @@ public class RNNModelScratch {
             Device device,
             Functions.TriFunction<Integer, Integer, Device, NDList> getParams,
             Functions.TriFunction<Integer, Integer, Device, NDList> initRNNState,
-            Functions.TriFunction<NDArray, NDArray, NDList, Pair> forwardFn) {
+            Functions.TriFunction<NDArray, NDList, NDList, Pair> forwardFn) {
         this.vocabSize = vocabSize;
         this.numHiddens = numHiddens;
         this.params = getParams.apply(vocabSize, numHiddens, device);
@@ -25,7 +25,7 @@ public class RNNModelScratch {
         this.forwardFn = forwardFn;
     }
 
-    public Pair forward(NDArray X, NDArray state) {
+    public Pair forward(NDArray X, NDList state) {
         X = X.transpose().oneHot(this.vocabSize);
         return this.forwardFn.apply(X, state, this.params);
     }

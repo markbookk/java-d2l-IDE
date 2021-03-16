@@ -39,7 +39,7 @@ public class Main {
         Functions.TriFunction<Integer, Integer, Device, NDList> getParamsFn = (a, b, c) -> getParams(a, b, c);
         Functions.TriFunction<Integer, Integer, Device, NDList> initGruStateFn =
                 (a, b, c) -> initGruState(a, b, c);
-        Functions.TriFunction<NDArray, NDArray, NDList, Pair> gruFn = (a, b, c) -> gru(a, b, c);
+        Functions.TriFunction<NDArray, NDList, NDList, Pair> gruFn = (a, b, c) -> gru(a, b, c);
 
         RNNModelScratch model =
                 new RNNModelScratch(vocabSize, numHiddens, device,
@@ -52,7 +52,7 @@ public class Main {
         return new NDList(manager.zeros(new Shape(batchSize, numHiddens), DataType.FLOAT32, device));
     }
 
-    public static Pair<NDArray, NDArray> gru(NDArray inputs, NDArray state, NDList params) {
+    public static Pair<NDArray, NDList> gru(NDArray inputs, NDList state, NDList params) {
         NDArray W_xz = params.get(0);
         NDArray W_hz = params.get(1);
         NDArray b_z = params.get(2);
@@ -68,7 +68,7 @@ public class Main {
         NDArray W_hq = params.get(9);
         NDArray b_q  = params.get(10);
 
-        NDArray H = state;
+        NDArray H = state.get(0);
         NDList outputs = new NDList();
         NDArray X, Y;
         for (int i = 0; i < inputs.size(0); i++) {
@@ -80,7 +80,7 @@ public class Main {
             Y = H.dot(W_hq).add(b_q);
             outputs.add(Y);
         }
-        return new Pair(outputs.size() > 1 ? NDArrays.concat(outputs) : outputs.get(0), H);
+        return new Pair(outputs.size() > 1 ? NDArrays.concat(outputs) : outputs.get(0), new NDList(H));
     }
 
     public static NDList getParams(int vocabSize, int numHiddens, Device device) {
