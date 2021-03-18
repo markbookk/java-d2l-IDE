@@ -6,7 +6,7 @@ import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
 import ai.djl.nn.Activation;
-import ai.djl.nn.recurrent.GRU;
+import ai.djl.nn.recurrent.LSTM;
 import ai.djl.translate.TranslateException;
 import ai.djl.util.Pair;
 
@@ -48,14 +48,14 @@ public class Main {
                         vocabSize, numHiddens, device, getParamsFn, initLSTMStateFn, lstmFn);
         TimeMachine.trainCh8(model, dataset, vocab, lr, numEpochs, device, false, manager);
 
-        GRU gruLayer =
-                GRU.builder()
+        LSTM lstmLayer =
+                LSTM.builder()
                         .setNumLayers(1)
                         .setStateSize(numHiddens)
                         .optReturnState(true)
                         .optBatchFirst(false)
                         .build();
-        RNNModel modelConcise = new RNNModel(gruLayer, vocab.length());
+        RNNModel modelConcise = new RNNModel(lstmLayer, vocab.length());
         TimeMachine.trainCh8(modelConcise, dataset, vocab, lr, numEpochs, device, false, manager);
     }
 
