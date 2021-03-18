@@ -6,6 +6,7 @@ import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
 import ai.djl.nn.Activation;
+import ai.djl.nn.recurrent.GRU;
 import ai.djl.translate.TranslateException;
 import ai.djl.util.Pair;
 
@@ -46,6 +47,10 @@ public class Main {
                         getParamsFn, initGruStateFn, gruFn);
         TimeMachine.trainCh8(model, dataset, vocab, lr, numEpochs, device, false, manager);
 
+        GRU gruLayer = GRU.builder().setNumLayers(1)
+                .setStateSize(numHiddens).optReturnState(true).optBatchFirst(false).build();
+        RNNModel modelConcise = new RNNModel(gruLayer,vocab.length());
+        TimeMachine.trainCh8(modelConcise, dataset, vocab, lr, numEpochs, device, false, manager);
     }
 
     public static NDList initGruState(int batchSize, int numHiddens, Device device) {
@@ -70,12 +75,12 @@ public class Main {
 
         NDArray H = state.get(0);
         NDList outputs = new NDList();
-        NDArray X, Y;
+        NDArray X, Y, Z, R, H_tilda;
         for (int i = 0; i < inputs.size(0); i++) {
             X = inputs.get(i);
-            NDArray Z = Activation.sigmoid(X.dot(W_xz).add(H.dot(W_hz).add(b_z)));
-            NDArray R = Activation.sigmoid(X.dot(W_xr).add(H.dot(W_hr).add(b_r)));
-            NDArray H_tilda = Activation.tanh(X.dot(W_xh).add(R.mul(H).dot(W_hh).add(b_h)));
+            Z = Activation.sigmoid(X.dot(W_xz).add(H.dot(W_hz).add(b_z)));
+            R = Activation.sigmoid(X.dot(W_xr).add(H.dot(W_hr).add(b_r)));
+            H_tilda = Activation.tanh(X.dot(W_xh).add(R.mul(H).dot(W_hh).add(b_h)));
             H = Z.mul(H).add(Z.mul(-1).add(1).mul(H_tilda));
             Y = H.dot(W_hq).add(b_q);
             outputs.add(Y);
@@ -112,7 +117,7 @@ public class Main {
         // Attach gradients
         NDList params = new NDList(W_xz, W_hz, b_z, W_xr, W_hr, b_r, W_xh, W_hh, b_h, W_hq, b_q);
         for (NDArray param : params) {
-            param.attachGradient();
+            param.setRequiresGradient(true);
         }
         return params;
     }

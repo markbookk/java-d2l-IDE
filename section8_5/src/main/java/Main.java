@@ -77,6 +77,7 @@ public class Main {
             speed = pair.getValue();
             if ((epoch + 1) % 10 == 0) {
                 //                    animator.add(epoch + 1, (float) ppl, "");
+                //                    animator.show();
             }
             System.out.format(
                     "epochs: %d, perplexity: %.1f, %.1f tokens/sec on %s%n", epoch, ppl, speed, device.toString());
@@ -211,7 +212,7 @@ public class Main {
         return params;
     }
 
-    public static Pair rnn(NDArray inputs, NDList state, NDList params) {
+    public static Pair<NDArray, NDList> rnn(NDArray inputs, NDList state, NDList params) {
         // Shape of `inputs`: (`numSteps`, `batchSize`, `vocabSize`)
         NDArray W_xh = params.get(0);
         NDArray W_hh = params.get(1);
@@ -229,7 +230,7 @@ public class Main {
             Y = H.dot(W_hq).add(b_q);
             outputs.add(Y);
         }
-        return new Pair(outputs.size() > 1 ? NDArrays.concat(outputs) : outputs.get(0), new NDList(H));
+        return new Pair<>(outputs.size() > 1 ? NDArrays.concat(outputs) : outputs.get(0), new NDList(H));
     }
 
     public static NDArray normal(Shape shape, Device device) {
