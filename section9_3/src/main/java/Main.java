@@ -33,30 +33,20 @@ public class Main {
 
         int vocabSize = vocab.length();
         int numHiddens = 256;
+        int numLayers = 2;
         Device device = Functions.tryGpu(0);
         int numEpochs = 500;
-        int lr = 1;
-
-        Functions.TriFunction<Integer, Integer, Device, NDList> getParamsFn =
-                (a, b, c) -> getLSTMParams(a, b, c);
-        Functions.TriFunction<Integer, Integer, Device, NDList> initLSTMStateFn =
-                (a, b, c) -> initLSTMState(a, b, c);
-        Functions.TriFunction<NDArray, NDList, NDList, Pair> lstmFn = (a, b, c) -> lstm(a, b, c);
-
-        RNNModelScratch model =
-                new RNNModelScratch(
-                        vocabSize, numHiddens, device, getParamsFn, initLSTMStateFn, lstmFn);
-//        TimeMachine.trainCh8(model, dataset, vocab, lr, numEpochs, device, false, manager);
+        int lr = 2;
 
         LSTM lstmLayer =
                 LSTM.builder()
-                        .setNumLayers(1)
+                        .setNumLayers(numLayers)
                         .setStateSize(numHiddens)
                         .optReturnState(true)
                         .optBatchFirst(false)
                         .build();
-        RNNModel modelConcise = new RNNModel(lstmLayer, vocab.length());
-        TimeMachine.trainCh8(modelConcise, dataset, vocab, lr, numEpochs, device, false, manager);
+        RNNModel model = new RNNModel(lstmLayer, vocabSize);
+        TimeMachine.trainCh8(model, dataset, vocab, lr, numEpochs, device, false, manager);
     }
 
     public static NDList initLSTMState(int batchSize, int numHiddens, Device device) {
