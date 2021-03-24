@@ -18,7 +18,6 @@ import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
 import ai.djl.nn.AbstractBlock;
 import ai.djl.nn.core.Linear;
-import ai.djl.nn.recurrent.RNN;
 import ai.djl.training.ParameterStore;
 import ai.djl.util.PairList;
 
@@ -29,7 +28,7 @@ public class RNNModel<T extends AbstractBlock> extends AbstractBlock {
     private Linear dense;
     private int vocabSize;
 
-    public RNNModel (T rnnLayer, int vocabSize) {
+    public RNNModel(T rnnLayer, int vocabSize) {
         super(VERSION);
         this.rnnLayer = rnnLayer;
         this.addChildBlock("rnn", rnnLayer);
@@ -53,7 +52,7 @@ public class RNNModel<T extends AbstractBlock> extends AbstractBlock {
         NDArray Y = result.get(0);
         NDArray state = result.get(1);
 
-        int shapeLength = Y.getShape().getShape().length;
+        int shapeLength = Y.getShape().dimension();
         NDList output = this.dense.forward(parameterStore, new NDList(Y
                 .reshape(new Shape(-1, Y.getShape().get(shapeLength-1)))), training);
         return new NDList(output.get(0), state);

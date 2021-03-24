@@ -4,7 +4,6 @@ import ai.djl.engine.Engine;
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.NDManager;
-import ai.djl.ndarray.index.NDIndex;
 import ai.djl.ndarray.types.Shape;
 import ai.djl.nn.AbstractBlock;
 import ai.djl.nn.Parameter;
@@ -66,7 +65,7 @@ public class TimeMachine {
 
     /** Return token indices and the vocabulary of the time machine dataset. */
     public static Pair<List<Integer>, Vocab> loadCorpusTimeMachine(int maxTokens)
-            throws Exception {
+            throws IOException, Exception {
         String[] lines = readTimeMachine();
         String[][] tokens = tokenize(lines, "char");
         Vocab vocab = new Vocab(tokens, 0, new String[0]);
@@ -249,11 +248,9 @@ public class TimeMachine {
 
         try (NDManager childManager = manager.newSubManager()) {
             NDList state = null;
-            for (Batch batch : dataset.getData(manager)) {
+            for (Batch batch : dataset.getData(childManager)) {
                 NDArray X = batch.getData().head().toDevice(Functions.tryGpu(0), true);
-                X.attach(childManager);
                 NDArray Y = batch.getLabels().head().toDevice(Functions.tryGpu(0), true);
-                Y.attach(childManager);
                 if (state == null || useRandomIter) {
                     // Initialize `state` when either it is the first iteration or
                     // using random sampling
@@ -333,8 +330,8 @@ public class TimeMachine {
         double norm = Math.sqrt(result);
         if (norm > theta) {
             for (NDArray param : params) {
-                NDArray gradient = param.getGradient().stopGradient();
-                param.getGradient().set(new NDIndex(":"), gradient.mul(theta / norm));
+                NDArray gradient = param.getGradient();
+                gradient.muli(theta / norm);
             }
         }
     }

@@ -1,4 +1,5 @@
 import ai.djl.ndarray.NDArray;
+import ai.djl.ndarray.NDArrays;
 import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.index.NDIndex;
@@ -81,17 +82,18 @@ public class TimeMachineDataset extends RandomAccessDataset {
         Ys = Ys.reshape(new Shape(batchSize, -1));
         int numBatches = (int) Xs.getShape().get(1) / numSteps;
 
+        NDList xNDList = new NDList();
+        NDList yNDList = new NDList();
         for (int i = 0; i < numSteps * numBatches; i += numSteps) {
             NDArray X = Xs.get(new NDIndex(":, {}:{}", i, i + numSteps));
             NDArray Y = Ys.get(new NDIndex(":, {}:{}", i, i + numSteps));
-            // Temp variables to be able to detach NDArray which will be replaced
-            NDArray temp = this.data;
-            NDArray temp2 = this.data;
-            this.data = this.data.concat(X);
-            this.labels = this.labels.concat(Y);
-            temp.detach();
-            temp2.detach();
+            xNDList.add(X);
+            yNDList.add(Y);
         }
+        this.data = NDArrays.concat(xNDList);
+        xNDList.close();
+        this.labels = NDArrays.concat(yNDList);
+        yNDList.close();
         this.prepared = true;
     }
 
