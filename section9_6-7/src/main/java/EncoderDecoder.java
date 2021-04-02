@@ -1,5 +1,5 @@
-import ai.djl.ndarray.NDArray;
-import ai.djl.ndarray.NDList;
+import ai.djl.ndarray.*;
+import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
 import ai.djl.nn.AbstractBlock;
 import ai.djl.training.ParameterStore;
@@ -8,13 +8,21 @@ import ai.djl.util.PairList;
 public class EncoderDecoder extends AbstractBlock {
     /* The base class for the encoder-decoder architecture. */
     private static final byte VERSION = 1;
-    private Encoder encoder;
-    private Decoder decoder;
+    public Encoder encoder;
+    public Decoder decoder;
 
     public EncoderDecoder(Encoder encoder, Decoder decoder) {
         super(VERSION);
+
         this.encoder = encoder;
+        this.addChildBlock("encoder", this.encoder);
         this.decoder = decoder;
+        this.addChildBlock("decoder", this.decoder);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void initializeChildBlocks(NDManager manager, DataType dataType, Shape... inputShapes) {
     }
 
     @Override
@@ -22,7 +30,8 @@ public class EncoderDecoder extends AbstractBlock {
         NDArray encX = inputs.get(0);
         NDArray decX = inputs.get(1);
         NDList encOutputs = this.encoder.forward(parameterStore, new NDList(encX), training, params);
-        return this.decoder.forward(parameterStore, new NDList(decX).addAll(encOutputs), training, params);
+        NDList decState = this.decoder.beginState(encOutputs);
+        return this.decoder.forward(parameterStore, new NDList(decX).addAll(decState), training, params);
     }
 
     @Override
