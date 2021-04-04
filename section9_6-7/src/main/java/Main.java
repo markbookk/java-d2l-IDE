@@ -88,11 +88,10 @@ public class Main {
         String[] engs = {"go .", "i lost .", "he\'s calm .", "i\'m home ."};
         String[] fras = {"va !", "j\'ai perdu .", "il est calme .", "je suis chez moi ."};
         for (int i = 0; i < engs.length; i++) {
-            Pair<String, ArrayList<Integer>> pair = predictSeq2Seq(net, engs[i], srcVocab, tgtVocab, numSteps, device, false);
+            Pair<String, ArrayList<NDArray>> pair = predictSeq2Seq(net, engs[i], srcVocab, tgtVocab, numSteps, device, false);
             String translation = pair.getKey();
-            ArrayList<Integer> attentionWeightSeq = pair.getValue();
-            System.out.format("%s => %s, bleu %.3d", engs[i], translation, bleu(translation, fras[i], 2));
-
+            ArrayList<NDArray> attentionWeightSeq = pair.getValue();
+            System.out.format("%s => %s, bleu %.3f\n", engs[i], translation, bleu(translation, fras[i], 2));
         }
     }
 
@@ -106,7 +105,7 @@ public class Main {
             throws IOException, TranslateException {
         Loss loss = new MaskedSoftmaxCELoss();
         Tracker lrt = Tracker.fixed(lr);
-        Optimizer sgd = Optimizer.adam().optLearningRateTracker(lrt).build();
+        Optimizer sgd = Optimizer.adam().optLearningRateTracker(lrt).setRescaleGrad(1/500f).build();
 
         DefaultTrainingConfig config =
                 new DefaultTrainingConfig(loss)
@@ -173,7 +172,7 @@ public class Main {
                 "loss: %.3f, %.1f tokens/sec on %s%n", lossValue, speed, device.toString());
     }
 
-    public static Pair<String, ArrayList<Integer>> predictSeq2Seq(
+    public static Pair<String, ArrayList<NDArray>> predictSeq2Seq(
             EncoderDecoder net,
             String srcSentence,
             Vocab srcVocab,
@@ -188,41 +187,33 @@ public class Main {
                                         srcVocab.getIdxs(srcSentence.toLowerCase().split(" "))),
                                 Arrays.stream(new Integer[] {srcVocab.getIdx("<eos>")}))
                         .toArray(Integer[]::new);
-        int[] truncateOutput = NMT.truncatePad(srcTokens, numSteps, srcVocab.getIdx("<pad>"));
-        NDArray encValidLen = manager.create(truncateOutput.length);
+        NDArray encValidLen = manager.create(srcTokens.length);
+        int[] truncateSrcTokens = NMT.truncatePad(srcTokens, numSteps, srcVocab.getIdx("<pad>"));
         // Add the batch axis
-        NDArray encX = manager.create(truncateOutput).expandDims(0);
+        NDArray encX = manager.create(truncateSrcTokens).expandDims(0);
         NDList encOutputs =
                 net.encoder.forward(
                         new ParameterStore(manager, false), new NDList(encX, encValidLen), false);
-        encOutputs.add(encValidLen);
-        NDList decState = net.decoder.beginState(encOutputs);
+        NDList decState = net.decoder.beginState(encOutputs.addAll(new NDList(encValidLen)));
         // Add the batch axis
-        NDArray decX = manager.create(tgtVocab.getIdx("<bos>")).expandDims(0);
+        NDArray decX = manager.create(new float[] {tgtVocab.getIdx("<bos>")}).expandDims(0);
         ArrayList<Integer> outputSeq = new ArrayList<>();
-        ArrayList<Integer> attentionWeightSeq = new ArrayList<>();
+        ArrayList<NDArray> attentionWeightSeq = new ArrayList<>();
         for (int i = 0; i < numSteps; i++) {
             NDList output =
-                    net.encoder.forward(
+                    net.decoder.forward(
                             new ParameterStore(manager, false),
                             new NDList(decX).addAll(decState),
                             false);
             NDArray Y = output.get(0);
-            decState.subNDList(1);
+            decState = output.subNDList(1);
             // We use the token with the highest prediction likelihood as the input
             // of the decoder at the next time step
             decX = Y.argMax(2);
-            int pred = decX.squeeze(0).getInt();
+            int pred = (int) decX.squeeze(0).getLong();
             // Save attention weights (to be covered later)
             if (saveAttentionWeights) {
-                attentionWeightSeq.add(
-                        net.decoder
-                                .forward(
-                                        new ParameterStore(manager, false),
-                                        new NDList(decX).addAll(decState),
-                                        false)
-                                .head()
-                                .getInt(0));
+                attentionWeightSeq.add(net.decoder.attentionWeights);
             }
             // Once the end-of-sequence token is predicted, the generation of the
             // output sequence is complete
@@ -242,7 +233,7 @@ public class Main {
         String[] labelTokens = labelSeq.split(" ");
         int lenPred = predTokens.length, lenLabel = labelTokens.length;
         double score = Math.exp(Math.min(0, 1 - lenLabel / lenPred));
-        for (int n = 0; n < k + 1; n++) {
+        for (int n = 1; n < k + 1; n++) {
             int numMatches = 0;
             HashMap<String, Integer> labelSubs = new HashMap<>();
             for (int i = 0; i < lenLabel - n + 1; i++) {
@@ -253,9 +244,9 @@ public class Main {
             for (int i = 0; i < lenPred - n + 1; i++) {
                 String key =
                         String.join(" ", Arrays.copyOfRange(predTokens, i, i + n, String[].class));
-                if (labelSubs.get(key) > 0) {
+                if (labelSubs.getOrDefault(key, 0) > 0) {
                     numMatches += 1;
-                    labelSubs.put(key, labelSubs.get(key) - 1);
+                    labelSubs.put(key, labelSubs.getOrDefault(key, 0) - 1);
                 }
             }
             score *= Math.pow(numMatches / (lenPred - n + 1), Math.pow(0.5, n));
