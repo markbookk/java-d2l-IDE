@@ -7,6 +7,7 @@ import ai.djl.ndarray.types.Shape;
 import ai.djl.training.*;
 import ai.djl.training.dataset.ArrayDataset;
 import ai.djl.training.dataset.Batch;
+import ai.djl.training.initializer.Initializer;
 import ai.djl.training.initializer.XavierInitializer;
 import ai.djl.training.listener.TrainingListener;
 import ai.djl.training.loss.Loss;
@@ -14,7 +15,6 @@ import ai.djl.training.optimizer.Optimizer;
 import ai.djl.training.tracker.Tracker;
 import ai.djl.translate.TranslateException;
 import ai.djl.util.Pair;
-import tech.tablesaw.index.Index;
 
 import java.io.IOException;
 import java.util.*;
@@ -105,12 +105,12 @@ public class Main {
             throws IOException, TranslateException {
         Loss loss = new MaskedSoftmaxCELoss();
         Tracker lrt = Tracker.fixed(lr);
-        Optimizer sgd = Optimizer.adam().optLearningRateTracker(lrt).setRescaleGrad(1/500f).build();
+        Optimizer sgd = Optimizer.adam().optLearningRateTracker(lrt).build();
 
         DefaultTrainingConfig config =
                 new DefaultTrainingConfig(loss)
                         .optOptimizer(sgd) // Optimizer (loss function)
-                        .optInitializer(new XavierInitializer(), "")
+                        .optInitializer(Initializer.ZEROS, "")//XavierInitializer(), "")
                         .addTrainingListeners(TrainingListener.Defaults.logging()); // Logging
 
         Model model = Model.newInstance("");
@@ -153,7 +153,7 @@ public class Main {
                     }
                     Training.gradClipping(net, 1, childManager);
                     // Update parameters
-                    trainer.step();
+                    trainer.step((int) lenY.sum().getLong());
                 }
             }
             lossValue = metric.get(0) / metric.get(1);

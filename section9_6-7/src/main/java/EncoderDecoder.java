@@ -2,7 +2,9 @@ import ai.djl.ndarray.*;
 import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
 import ai.djl.nn.AbstractBlock;
+import ai.djl.nn.Parameter;
 import ai.djl.training.ParameterStore;
+import ai.djl.training.initializer.Initializer;
 import ai.djl.util.PairList;
 
 public class EncoderDecoder extends AbstractBlock {
@@ -15,8 +17,10 @@ public class EncoderDecoder extends AbstractBlock {
         super(VERSION);
 
         this.encoder = encoder;
+        this.encoder.setInitializer(Initializer.ZEROS, Parameter.Type.WEIGHT);
         this.addChildBlock("encoder", this.encoder);
         this.decoder = decoder;
+        this.decoder.setInitializer(Initializer.ZEROS, Parameter.Type.WEIGHT);
         this.addChildBlock("decoder", this.decoder);
     }
 

@@ -1,10 +1,8 @@
 import ai.djl.modality.nlp.embedding.TrainableWordEmbedding;
 import ai.djl.ndarray.*;
-import ai.djl.ndarray.index.NDIndex;
 import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
 import ai.djl.nn.Parameter;
-import ai.djl.nn.core.Linear;
 import ai.djl.nn.recurrent.GRU;
 import ai.djl.training.ParameterStore;
 import ai.djl.training.initializer.Initializer;
@@ -17,6 +15,7 @@ public class Seq2SeqEncoder extends Encoder {
 
     public Seq2SeqEncoder(
             int vocabSize, int embedSize, int numHiddens, int numLayers, float dropout) {
+        /* The RNN encoder for sequence to sequence learning. */
         super();
         this.embedding =
                 TrainableWordEmbedding.builder()
@@ -24,7 +23,7 @@ public class Seq2SeqEncoder extends Encoder {
                         .setEmbeddingSize(embedSize)
                         .setVocabulary(null)
                         .build();
-//        this.embedding.setInitializer(Initializer.ZEROS, Parameter.Type.WEIGHT);
+        this.embedding.setInitializer(Initializer.ZEROS, Parameter.Type.WEIGHT);
         this.addChildBlock("embedding", this.embedding);
         this.rnn =
                 GRU.builder()
@@ -34,7 +33,7 @@ public class Seq2SeqEncoder extends Encoder {
                         .optBatchFirst(false)
                         .optDropRate(dropout)
                         .build();
-//        this.rnn.setInitializer(Initializer.ZEROS, Parameter.Type.WEIGHT);
+        this.rnn.setInitializer(Initializer.ZEROS, Parameter.Type.WEIGHT);
         this.addChildBlock("rnn", this.rnn);
     }
 
