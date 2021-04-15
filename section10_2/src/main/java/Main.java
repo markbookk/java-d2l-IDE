@@ -42,19 +42,7 @@ public class Main {
         int nTest = (int) xTest.getShape().get(0); // No. of testing examples
         System.out.println(nTest);
 
-        Figure fig =
-                plot(
-                        Functions.floatToDoubleArray(xTest.toFloatArray()),
-                        Functions.floatToDoubleArray(yTruth.toFloatArray()),
-                        Functions.floatToDoubleArray(yTrain.mean().tile(nTest).toFloatArray()),
-                        Functions.floatToDoubleArray(xTrain.toFloatArray()),
-                        Functions.floatToDoubleArray(yTrain.toFloatArray()),
-                        "Truth",
-                        "Pred",
-                        "x",
-                        "y",
-                        700,
-                        500);
+        Figure fig = plot(yTrain.mean().tile(nTest), "Truth", "Pred", "x", "y", 700, 500);
         Plot.show(fig);
 
         // Shape of `xRepeat`: (`nTest`, `nTrain`), where each row contains the
@@ -67,19 +55,7 @@ public class Main {
         // Each element of `yHat` is weighted average of values, where weights are
         // attention weights
         NDArray yHat = attentionWeights.dot(yTrain);
-        fig =
-                plot(
-                        Functions.floatToDoubleArray(xTest.toFloatArray()),
-                        Functions.floatToDoubleArray(yTruth.toFloatArray()),
-                        Functions.floatToDoubleArray(yHat.toFloatArray()),
-                        Functions.floatToDoubleArray(xTrain.toFloatArray()),
-                        Functions.floatToDoubleArray(yTrain.toFloatArray()),
-                        "Truth",
-                        "Pred",
-                        "x",
-                        "y",
-                        700,
-                        500);
+        fig = plot(yHat, "Truth", "Pred", "x", "y", 700, 500);
         Plot.show(fig);
 
         fig =
@@ -157,19 +133,7 @@ public class Main {
                                 new NDList(xTest, keys, values),
                                 true)
                         .get(0);
-        fig =
-                plot(
-                        Functions.floatToDoubleArray(xTest.toFloatArray()),
-                        Functions.floatToDoubleArray(yTruth.toFloatArray()),
-                        Functions.floatToDoubleArray(yHat.toFloatArray()),
-                        Functions.floatToDoubleArray(xTrain.toFloatArray()),
-                        Functions.floatToDoubleArray(yTrain.toFloatArray()),
-                        "Truth",
-                        "Pred",
-                        "x",
-                        "y",
-                        700,
-                        500);
+        fig = plot(yHat, "Truth", "Pred", "x", "y", 700, 500);
         Plot.show(fig);
 
         fig =
@@ -184,11 +148,7 @@ public class Main {
     }
 
     public static Figure plot(
-            double[] xTest,
-            double[] yTruth,
-            double[] yHat,
-            double[] xTrain,
-            double[] yTrain,
+            NDArray yHat,
             String trace1Name,
             String trace2Name,
             String xLabel,
@@ -196,19 +156,25 @@ public class Main {
             int width,
             int height) {
         ScatterTrace trace =
-                ScatterTrace.builder(xTest, yTruth)
+                ScatterTrace.builder(
+                                Functions.floatToDoubleArray(xTest.toFloatArray()),
+                                Functions.floatToDoubleArray(yTruth.toFloatArray()))
                         .mode(ScatterTrace.Mode.LINE)
                         .name(trace1Name)
                         .build();
 
         ScatterTrace trace2 =
-                ScatterTrace.builder(xTest, yHat)
+                ScatterTrace.builder(
+                                Functions.floatToDoubleArray(xTest.toFloatArray()),
+                                Functions.floatToDoubleArray(yHat.toFloatArray()))
                         .mode(ScatterTrace.Mode.LINE)
                         .name(trace2Name)
                         .build();
 
         ScatterTrace trace3 =
-                ScatterTrace.builder(xTrain, yTrain)
+                ScatterTrace.builder(
+                                Functions.floatToDoubleArray(xTrain.toFloatArray()),
+                                Functions.floatToDoubleArray(yTrain.toFloatArray()))
                         .mode(ScatterTrace.Mode.MARKERS)
                         .marker(Marker.builder().symbol(Symbol.CIRCLE).size(15).opacity(.5).build())
                         .build();
