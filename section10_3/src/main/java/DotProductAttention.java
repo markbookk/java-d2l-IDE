@@ -40,7 +40,7 @@ public class DotProductAttention extends AbstractBlock {
         NDArray values = inputs.get(2);
         NDArray validLens = inputs.get(3);
 
-        Long d = queries.getShape().get(queries.getShape().dimension()-1);
+        Long d = queries.getShape().get(queries.getShape().dimension() - 1);
         // Swap the last two dimensions of `keys` and perform batchDot
         NDArray scores = queries.batchDot(keys.swapAxes(1, 2)).div(Math.sqrt(2));
         attentionWeights = Main.maskedSoftmax(scores, validLens);
@@ -58,7 +58,5 @@ public class DotProductAttention extends AbstractBlock {
     }
 
     @Override
-    public void initializeChildBlocks(NDManager manager, DataType dataType, Shape... inputShapes) {
-    }
-
+    public void initializeChildBlocks(NDManager manager, DataType dataType, Shape... inputShapes) {}
 }

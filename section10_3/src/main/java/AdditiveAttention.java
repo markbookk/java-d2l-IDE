@@ -81,7 +81,5 @@ public class AdditiveAttention extends AbstractBlock {
     }
 
     @Override
-    public void initializeChildBlocks(NDManager manager, DataType dataType, Shape... inputShapes) {
-    }
-
+    public void initializeChildBlocks(NDManager manager, DataType dataType, Shape... inputShapes) {}
 }
