@@ -42,7 +42,8 @@ public class Main {
         int nTest = (int) xTest.getShape().get(0); // No. of testing examples
         System.out.println(nTest);
 
-        Figure fig = plot(yTrain.mean().tile(nTest), "Truth", "Pred", "x", "y", 700, 500);
+        NDArray yHat = yTrain.mean().tile(nTest);
+        Figure fig = plot(yHat, "Truth", "Pred", "x", "y", 700, 500);
         Plot.show(fig);
 
         // Shape of `xRepeat`: (`nTest`, `nTrain`), where each row contains the
@@ -54,15 +55,15 @@ public class Main {
         NDArray attentionWeights = xRepeat.sub(xTrain).pow(2).div(2).mul(-1).softmax(-1);
         // Each element of `yHat` is weighted average of values, where weights are
         // attention weights
-        NDArray yHat = attentionWeights.dot(yTrain);
+        yHat = attentionWeights.dot(yTrain);
         fig = plot(yHat, "Truth", "Pred", "x", "y", 700, 500);
         Plot.show(fig);
 
         fig =
                 PlotUtils.showHeatmaps(
                         attentionWeights.expandDims(0).expandDims(0),
-                        "",
-                        "",
+                        "Sorted training inputs",
+                        "Sorted testing inputs",
                         new String[] {""},
                         500,
                         700);
@@ -107,13 +108,13 @@ public class Main {
         // Create trainer and animator
         for (int epoch = 0; epoch < 5; epoch++) {
             try (GradientCollector gc = trainer.newGradientCollector()) {
-                NDArray ressult =
+                NDArray result =
                         net.forward(
                                         new ParameterStore(manager, false),
                                         new NDList(xTrain, keys, values),
                                         true)
                                 .get(0);
-                NDArray l = trainer.getLoss().evaluate(new NDList(yTrain), new NDList(ressult));
+                NDArray l = trainer.getLoss().evaluate(new NDList(yTrain), new NDList(result));
 
                 gc.backward(l);
                 System.out.println("Epoch: " + (epoch + 1) + " , Loss:" + l.mean().toString());
@@ -139,8 +140,8 @@ public class Main {
         fig =
                 PlotUtils.showHeatmaps(
                         net.attentionWeights.expandDims(0).expandDims(0),
-                        "",
-                        "",
+                        "Sorted training inputs",
+                        "Sorted testing inputs",
                         new String[] {""},
                         500,
                         700);
