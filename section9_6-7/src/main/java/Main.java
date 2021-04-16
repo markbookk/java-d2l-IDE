@@ -105,11 +105,11 @@ public class Main {
             throws IOException, TranslateException {
         Loss loss = new MaskedSoftmaxCELoss();
         Tracker lrt = Tracker.fixed(lr);
-        Optimizer sgd = Optimizer.adam().optLearningRateTracker(lrt).build();
+        Optimizer adam = Optimizer.adam().optLearningRateTracker(lrt).build();
 
         DefaultTrainingConfig config =
                 new DefaultTrainingConfig(loss)
-                        .optOptimizer(sgd) // Optimizer (loss function)
+                        .optOptimizer(adam) // Optimizer (loss function)
                         .optInitializer(Initializer.ZEROS, "")//XavierInitializer(), "")
                         .addTrainingListeners(TrainingListener.Defaults.logging()); // Logging
 

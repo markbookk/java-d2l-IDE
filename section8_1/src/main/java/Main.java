@@ -140,10 +140,10 @@ public class Main {
         // Square Loss
         Loss loss = Loss.l2Loss();
         Tracker lrt = Tracker.fixed(learningRate);
-        Optimizer sgd = Optimizer.adam().optLearningRateTracker(lrt).build();
+        Optimizer adam = Optimizer.adam().optLearningRateTracker(lrt).build();
 
         DefaultTrainingConfig config = new DefaultTrainingConfig(loss)
-                .optOptimizer(sgd) // Optimizer (loss function)
+                .optOptimizer(adam) // Optimizer (loss function)
                 .optInitializer(new XavierInitializer())
                 .addTrainingListeners(TrainingListener.Defaults.logging()); // Logging
 
