@@ -19,7 +19,6 @@ public class MultiHeadAttention extends AbstractBlock {
     private Linear W_o;
     private Dropout dropout;
 
-
     public MultiHeadAttention(int numHiddens, int numHeads, float dropout, boolean useBias) {
         super(VERSION);
         this.numHeads = numHeads;
@@ -65,37 +64,42 @@ public class MultiHeadAttention extends AbstractBlock {
         NDArray values = inputs.get(2);
         NDArray validLens = inputs.get(3);
 
-        queries = Main.transposeQkv(W_q
-                .forward(
-                        parameterStore, new NDList(queries), training, params)
-                .get(0), this.numHeads);
-        keys = Main.transposeQkv(W_k
-                .forward(
-                        parameterStore, new NDList(keys), training, params)
-                .get(0), this.numHeads);
-        values = Main.transposeQkv(W_v
-                .forward(
-                        parameterStore, new NDList(values), training, params)
-                .get(0), this.numHeads);
+        queries =
+                Chap10Utils.transposeQkv(
+                        W_q.forward(parameterStore, new NDList(queries), training, params).get(0),
+                        this.numHeads);
+        keys =
+                Chap10Utils.transposeQkv(
+                        W_k.forward(parameterStore, new NDList(keys), training, params).get(0),
+                        this.numHeads);
+        values =
+                Chap10Utils.transposeQkv(
+                        W_v.forward(parameterStore, new NDList(values), training, params).get(0),
+                        this.numHeads);
 
         if (validLens != null) {
-            //On axis 0, copy the first item (scalar or vector) for
+            // On axis 0, copy the first item (scalar or vector) for
             // `numHeads` times, then copy the next item, and so on
             validLens = validLens.repeat(0, this.numHeads);
         }
 
         // Shape of `output`: (`batchSize` * `numHeads`, no. of queries,
         // `numHiddens` / `numHeads`)
-        NDArray output = this.attention.forward(
-                parameterStore, new NDList(queries, keys, values, validLens), training, params)
-                .get(0);
+        NDArray output =
+                this.attention
+                        .forward(
+                                parameterStore,
+                                new NDList(queries, keys, values, validLens),
+                                training,
+                                params)
+                        .get(0);
 
         // Shape of `outputConcat`:
         // (`batchSize`, no. of queries, `numHiddens`)
-        NDArray outputConcat = Main.transposeOutput(output, this.numHeads);
-        return new NDList(this.W_o.forward(
-                parameterStore, new NDList(outputConcat), training, params)
-                .get(0));
+        NDArray outputConcat = Chap10Utils.transposeOutput(output, this.numHeads);
+        return new NDList(
+                this.W_o.forward(parameterStore, new NDList(outputConcat), training, params)
+                        .get(0));
     }
 
     @Override

@@ -1,10 +1,8 @@
 import ai.djl.ndarray.*;
-import ai.djl.ndarray.index.NDIndex;
 import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
 import ai.djl.nn.AbstractBlock;
 import ai.djl.nn.Parameter;
-import ai.djl.nn.core.Linear;
 import ai.djl.nn.norm.Dropout;
 import ai.djl.training.ParameterStore;
 import ai.djl.training.initializer.UniformInitializer;
@@ -43,7 +41,7 @@ public class DotProductAttention extends AbstractBlock {
         Long d = queries.getShape().get(queries.getShape().dimension() - 1);
         // Swap the last two dimensions of `keys` and perform batchDot
         NDArray scores = queries.batchDot(keys.swapAxes(1, 2)).div(Math.sqrt(2));
-        attentionWeights = Main.maskedSoftmax(scores, validLens);
+        attentionWeights = Chap10Utils.maskedSoftmax(scores, validLens);
         return new NDList(
                 this.dropout
                         .forward(
