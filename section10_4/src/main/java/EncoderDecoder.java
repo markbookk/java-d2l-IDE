@@ -26,18 +26,23 @@ public class EncoderDecoder extends AbstractBlock {
 
     /** {@inheritDoc} */
     @Override
-    public void initializeChildBlocks(NDManager manager, DataType dataType, Shape... inputShapes) {
-    }
+    public void initializeChildBlocks(NDManager manager, DataType dataType, Shape... inputShapes) {}
 
     @Override
-    protected NDList forwardInternal(ParameterStore parameterStore, NDList inputs, boolean training, PairList<String, Object> params) {
+    protected NDList forwardInternal(
+            ParameterStore parameterStore,
+            NDList inputs,
+            boolean training,
+            PairList<String, Object> params) {
         NDArray encX = inputs.get(0);
         NDArray decX = inputs.get(1);
         NDArray lenX = inputs.get(2);
-        NDList encOutputs = this.encoder.forward(parameterStore, new NDList(encX), training, params);
+        NDList encOutputs =
+                this.encoder.forward(parameterStore, new NDList(encX), training, params);
         encOutputs.add(lenX);
         NDList decState = this.decoder.beginState(encOutputs);
-        return this.decoder.forward(parameterStore, new NDList(decX).addAll(decState), training, params);
+        return this.decoder.forward(
+                parameterStore, new NDList(decX).addAll(decState), training, params);
     }
 
     @Override

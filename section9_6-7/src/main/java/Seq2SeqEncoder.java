@@ -23,7 +23,7 @@ public class Seq2SeqEncoder extends Encoder {
                         .setEmbeddingSize(embedSize)
                         .setVocabulary(null)
                         .build();
-        this.embedding.setInitializer(Initializer.ZEROS, Parameter.Type.WEIGHT);
+//        this.embedding.setInitializer(Initializer.ONES, Parameter.Type.WEIGHT);
         this.addChildBlock("embedding", this.embedding);
         this.rnn =
                 GRU.builder()
@@ -33,7 +33,7 @@ public class Seq2SeqEncoder extends Encoder {
                         .optBatchFirst(false)
                         .optDropRate(dropout)
                         .build();
-        this.rnn.setInitializer(Initializer.ZEROS, Parameter.Type.WEIGHT);
+//        this.rnn.setInitializer(Initializer.ONES, Parameter.Type.WEIGHT);
         this.addChildBlock("rnn", this.rnn);
     }
 

@@ -8,7 +8,7 @@ import ai.djl.util.PairList;
 public abstract class Decoder extends AbstractBlock {
     /* The base decoder interface for the encoder-decoder architecture. */
     private static final byte VERSION = 1;
-    public NDArray attentionWeights;
+    public NDList attentionWeights;
 
     public Decoder() {
         super(VERSION);

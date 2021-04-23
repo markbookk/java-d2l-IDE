@@ -25,8 +25,9 @@ public class Seq2SeqDecoder extends Decoder {
                         .setEmbeddingSize(embedSize)
                         .setVocabulary(null)
                         .build();
-        this.embedding.setInitializer(Initializer.ZEROS, Parameter.Type.WEIGHT);
+//        this.embedding.setInitializer(Initializer.ONES, Parameter.Type.WEIGHT);
         this.addChildBlock("embedding", this.embedding);
+
         this.rnn =
                 GRU.builder()
                         .setNumLayers(numLayers)
@@ -35,11 +36,11 @@ public class Seq2SeqDecoder extends Decoder {
                         .optBatchFirst(false)
                         .optDropRate(dropout)
                         .build();
-        this.rnn.setInitializer(Initializer.ZEROS, Parameter.Type.WEIGHT);
+//        this.rnn.setInitializer(Initializer.ONES, Parameter.Type.WEIGHT);
         this.addChildBlock("rnn", this.rnn);
+
         this.dense = Linear.builder().setUnits(vocabSize).build();
-        this.dense.setInitializer(Initializer.ZEROS, Parameter.Type.WEIGHT);
-//        this.dense.setInitializer(Initializer.ZEROS, Parameter.Type.BIAS);
+//        this.dense.setInitializer(Initializer.ONES, Parameter.Type.WEIGHT);
         this.addChildBlock("dense", this.dense);
     }
 

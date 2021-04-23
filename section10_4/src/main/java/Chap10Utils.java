@@ -6,7 +6,7 @@ public class Chap10Utils {
     public static NDArray maskedSoftmax(NDArray X, NDArray validLens) {
         /* Perform softmax operation by masking elements on the last axis. */
         // `X`: 3D tensor, `validLens`: 1D or 2D tensor
-        if (validLens.getShape().get(0) == 0) {
+        if (validLens.isScalar() || validLens.getShape().get(0) == 0) {
             return X.softmax(-1);
         } else {
             Shape shape = X.getShape();

@@ -64,7 +64,7 @@ public class AdditiveAttention extends AbstractBlock {
         NDArray result =
                 this.W_v.forward(parameterStore, new NDList(features), training, params).get(0);
         NDArray scores = result.squeeze(-1);
-        this.attentionWeights = Main.maskedSoftmax(scores, validLens);
+        this.attentionWeights = Chap10Utils.maskedSoftmax(scores, validLens);
         // Shape of `values`: (`batchSize`, no. of key-value pairs, value
         // dimension)
         return new NDList(

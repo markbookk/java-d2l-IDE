@@ -7,8 +7,6 @@ import ai.djl.ndarray.types.Shape;
 import ai.djl.training.*;
 import ai.djl.training.dataset.ArrayDataset;
 import ai.djl.training.dataset.Batch;
-import ai.djl.training.initializer.Initializer;
-import ai.djl.training.initializer.XavierInitializer;
 import ai.djl.training.listener.TrainingListener;
 import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
@@ -88,10 +86,12 @@ public class Main {
         String[] engs = {"go .", "i lost .", "he\'s calm .", "i\'m home ."};
         String[] fras = {"va !", "j\'ai perdu .", "il est calme .", "je suis chez moi ."};
         for (int i = 0; i < engs.length; i++) {
-            Pair<String, ArrayList<NDArray>> pair = predictSeq2Seq(net, engs[i], srcVocab, tgtVocab, numSteps, device, false);
+            Pair<String, ArrayList<NDArray>> pair =
+                    predictSeq2Seq(net, engs[i], srcVocab, tgtVocab, numSteps, device, false);
             String translation = pair.getKey();
             ArrayList<NDArray> attentionWeightSeq = pair.getValue();
-            System.out.format("%s => %s, bleu %.3f\n", engs[i], translation, bleu(translation, fras[i], 2));
+            System.out.format(
+                    "%s => %s, bleu %.3f\n", engs[i], translation, bleu(translation, fras[i], 2));
         }
     }
 
@@ -110,7 +110,8 @@ public class Main {
         DefaultTrainingConfig config =
                 new DefaultTrainingConfig(loss)
                         .optOptimizer(adam) // Optimizer (loss function)
-                        .optInitializer(Initializer.ZEROS, "")//XavierInitializer(), "")
+                        //                        .optInitializer(Initializer.ZEROS,
+                        // "")//XavierInitializer(), "")
                         .addTrainingListeners(TrainingListener.Defaults.logging()); // Logging
 
         Model model = Model.newInstance("");
@@ -153,7 +154,7 @@ public class Main {
                     }
                     Training.gradClipping(net, 1, childManager);
                     // Update parameters
-                    trainer.step((int) lenY.sum().getLong());
+                    trainer.step();
                 }
             }
             lossValue = metric.get(0) / metric.get(1);

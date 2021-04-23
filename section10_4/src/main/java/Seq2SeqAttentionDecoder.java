@@ -15,7 +15,6 @@ public class Seq2SeqAttentionDecoder extends AttentionDecoder {
     private TrainableWordEmbedding embedding;
     private GRU rnn;
     private Linear dense;
-    private NDList attentionWeights;
 
     public Seq2SeqAttentionDecoder(
             int vocabSize, int embedSize, int numHiddens, int numLayers, float dropout) {

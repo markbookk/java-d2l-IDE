@@ -13,6 +13,8 @@ import ai.djl.training.optimizer.Optimizer;
 import ai.djl.training.tracker.Tracker;
 import ai.djl.translate.TranslateException;
 import ai.djl.util.Pair;
+import tech.tablesaw.plotly.Plot;
+import tech.tablesaw.plotly.components.Figure;
 
 import java.io.IOException;
 import java.util.*;
@@ -52,7 +54,7 @@ public class Main {
         int batchSize = 64;
         int numSteps = 10;
         float lr = 0.005f;
-        int numEpochs = 250;
+        int numEpochs = 25;
         Device device = Functions.tryGpu(0);
 
         Pair<ArrayDataset, Pair<Vocab, Vocab>> dataNMT =
@@ -71,15 +73,32 @@ public class Main {
 
         String[] engs = {"go .", "i lost .", "he\'s calm .", "i\'m home ."};
         String[] fras = {"va !", "j\'ai perdu .", "il est calme .", "je suis chez moi ."};
+        ArrayList<NDArray> decAttentionWeightSeq = new ArrayList<>();
         for (int i = 0; i < engs.length; i++) {
             Pair<String, ArrayList<NDArray>> pair =
-                    predictSeq2Seq(net, engs[i], srcVocab, tgtVocab, numSteps, device, false);
+                    predictSeq2Seq(net, engs[i], srcVocab, tgtVocab, numSteps, device, true);
             String translation = pair.getKey();
-            ArrayList<NDArray> attentionWeightSeq = pair.getValue();
+            decAttentionWeightSeq = pair.getValue();
             System.out.format(
                     "%s => %s, bleu %.3f\n", engs[i], translation, bleu(translation, fras[i], 2));
         }
-        PlotUtils.showHeatmaps()
+
+        NDList steps = new NDList();
+        for (NDArray step : decAttentionWeightSeq) {
+            steps.add(step.get(0).get(0).get(0).reshape(1));
+        }
+        NDArray attentionWeights = NDArrays.concat(steps, 0).reshape(1, -1, 1, numSteps);
+        // Plus one to include the end-of-sequence token
+        Figure fig =
+                PlotUtils.showHeatmaps(
+                        attentionWeights.get(
+                                new NDIndex(":, :, :, :{}", engs[-1].split(" ").length + 1)),
+                        "Key positions",
+                        "Query positions",
+                        new String[] {""},
+                        500,
+                        700);
+        Plot.show(fig);
     }
 
     public static void trainSeq2Seq(
@@ -201,7 +220,7 @@ public class Main {
             int pred = (int) decX.squeeze(0).getLong();
             // Save attention weights (to be covered later)
             if (saveAttentionWeights) {
-                attentionWeightSeq.add(net.decoder.attentionWeights);
+                attentionWeightSeq.add(net.decoder.attentionWeights.get(0));
             }
             // Once the end-of-sequence token is predicted, the generation of the
             // output sequence is complete
