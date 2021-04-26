@@ -21,6 +21,7 @@ public class Seq2SeqAttentionDecoder extends AttentionDecoder {
         super();
         this.attention = new AdditiveAttention(numHiddens, dropout);
         this.addChildBlock("attention", this.attention);
+        this.attention.setInitializer(Initializer.ONES, Parameter.Type.WEIGHT);
 
         this.embedding =
                 TrainableWordEmbedding.builder()
@@ -29,6 +30,7 @@ public class Seq2SeqAttentionDecoder extends AttentionDecoder {
                         .setVocabulary(null)
                         .build();
         this.addChildBlock("embedding", this.embedding);
+        this.embedding.setInitializer(Initializer.ONES, Parameter.Type.WEIGHT);
 
         this.rnn =
                 GRU.builder()
@@ -38,10 +40,13 @@ public class Seq2SeqAttentionDecoder extends AttentionDecoder {
                         .optBatchFirst(false)
                         .optDropRate(dropout)
                         .build();
+        this.addChildBlock("rnn", this.rnn);
+        this.rnn.setInitializer(Initializer.ONES, Parameter.Type.WEIGHT);
 
         this.dense = Linear.builder().setUnits(vocabSize).build();
-        this.dense.setInitializer(Initializer.ONES, Parameter.Type.WEIGHT);
         this.addChildBlock("dense", this.dense);
+        this.dense.setInitializer(Initializer.ONES, Parameter.Type.WEIGHT);
+
     }
 
     public NDList beginState(NDList inputs) {

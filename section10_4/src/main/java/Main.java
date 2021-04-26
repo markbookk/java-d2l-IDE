@@ -54,7 +54,7 @@ public class Main {
         int batchSize = 64;
         int numSteps = 10;
         float lr = 0.005f;
-        int numEpochs = 25;
+        int numEpochs = 250;
         Device device = Functions.tryGpu(0);
 
         Pair<ArrayDataset, Pair<Vocab, Vocab>> dataNMT =
@@ -92,7 +92,9 @@ public class Main {
         Figure fig =
                 PlotUtils.showHeatmaps(
                         attentionWeights.get(
-                                new NDIndex(":, :, :, :{}", engs[-1].split(" ").length + 1)),
+                                new NDIndex(
+                                        ":, :, :, :{}",
+                                        engs[engs.length - 1].split(" ").length + 1)),
                         "Key positions",
                         "Query positions",
                         new String[] {""},
