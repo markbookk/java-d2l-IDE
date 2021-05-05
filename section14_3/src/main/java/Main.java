@@ -7,12 +7,12 @@ import ai.djl.ndarray.types.Shape;
 import ai.djl.nn.AbstractBlock;
 import ai.djl.nn.Parameter;
 import ai.djl.training.*;
-import ai.djl.training.dataset.ArrayDataset;
-import ai.djl.training.dataset.Batch;
+import ai.djl.training.dataset.*;
 import ai.djl.training.listener.TrainingListener;
 import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
 import ai.djl.training.tracker.Tracker;
+import ai.djl.translate.Batchifier;
 import ai.djl.translate.TranslateException;
 import ai.djl.util.Pair;
 import ai.djl.util.ZipUtils;
@@ -20,6 +20,7 @@ import tech.tablesaw.plotly.components.*;
 import tech.tablesaw.plotly.traces.HistogramTrace;
 
 import java.io.*;
+import java.lang.reflect.Array;
 import java.net.URL;
 import java.nio.file.Paths;
 import java.util.*;
@@ -110,92 +111,310 @@ public class Main {
         ArrayList<Object> x1 = new ArrayList<>();
         x1.add(1);
         ArrayList<Integer> temp = new ArrayList<>();
-        Collections.addAll(temp, new Integer[]{2, 2});
+        Collections.addAll(temp, new Integer[] {2, 2});
         x1.add(temp);
-        Collections.addAll(temp, new Integer[]{3, 3, 3, 3});
+        Collections.addAll(temp, new Integer[] {3, 3, 3, 3});
         x1.add(temp);
 
         ArrayList<Object> x2 = new ArrayList<>();
         x2.add(1);
         temp = new ArrayList<>();
-        Collections.addAll(temp, new Integer[]{2, 2, 2});
+        Collections.addAll(temp, new Integer[] {2, 2, 2});
         x2.add(temp);
-        Collections.addAll(temp, new Integer[]{3, 3});
+        Collections.addAll(temp, new Integer[] {3, 3});
         x2.add(temp);
 
         ArrayList<ArrayList<Object>> data = new ArrayList<>();
         data.add(x1);
         data.add(x2);
-        NDList batch = batchify(data, manager);
+        //        NDList batch = batchify(data, manager);
 
+        Pair<ArrayDataset, Vocab> datasetVocab = loadDataPTB(512, 5, 5, manager);
+        ArrayDataset dataset = datasetVocab.getKey();
+        vocab = datasetVocab.getValue();
+        String[] names = new String[] {"centers", "contexts_negatives", "masks", "labels"};
+        for (Batch batch : dataset.getData(manager)) {
+            for (int i = 0; i < batch.getData().size(); i++) {
+                System.out.println(names[i] + " shape: " + batch.getData().get(i).getShape());
+            }
+            break;
+        }
     }
 
-    public static NDList batchify(ArrayList<ArrayList<Object>> data, NDManager manager) {
-        int maxLen = 0;
-        for (ArrayList<Object> obj : data) {
-            ArrayList<Integer> c = (ArrayList<Integer>) obj.get(1);
-            ArrayList<Integer> n = (ArrayList<Integer>) obj.get(2);
-            maxLen = Math.max(maxLen, c.size() + n.size());
+    public static Pair<ArrayDataset, Vocab> loadDataPTB(
+            int batchSize, int maxWindowSize, int numNoiseWords, NDManager manager)
+            throws IOException, TranslateException {
+        String[][] sentences = readPTB();
+        Vocab vocab = new Vocab(sentences, 10, new String[] {});
+        String[][] subSampled = subSampling(sentences, vocab);
+        Integer[][] corpus = new Integer[subSampled.length][];
+        for (int i = 0; i < subSampled.length; i++) {
+            corpus[i] = vocab.getIdxs(subSampled[i]);
         }
-        ArrayList<Integer> centers = new ArrayList<>();
-        ArrayList<ArrayList<Integer>> contextNegatives = new ArrayList<>();
-        ArrayList<ArrayList<Integer>> masks = new ArrayList<>();
-        ArrayList<ArrayList<Integer>> labels = new ArrayList<>();
+        Pair<ArrayList<Integer>, ArrayList<ArrayList<Integer>>> pair =
+                getCentersAndContext(corpus, maxWindowSize);
+        ArrayList<ArrayList<Integer>> negatives =
+                getNegatives(pair.getValue(), corpus, numNoiseWords);
 
-        for (ArrayList<Object> obj : data) {
-            int center = (int) obj.get(0);
-            ArrayList<Integer> context = (ArrayList<Integer>) obj.get(1);
-            ArrayList<Integer> negative = (ArrayList<Integer>) obj.get(1);
-            int curLen = context.size() + negative.size();
-            centers.add(center);
+        NDList ndArrays =
+                convertNDArray(new Object[] {pair.getKey(), pair.getValue(), negatives}, manager);
+        ArrayDataset dataset =
+                new ArrayDataset.Builder()
+                        .setData(ndArrays.get(0), ndArrays.get(1), ndArrays.get(2))
+                        .optDataBatchifier(
+                                new Batchifier() {
+                                    @Override
+                                    public NDList batchify(NDList[] ndLists) {
+                                        NDArray centers = null;
+                                        NDArray contextsNegatives = null;
+                                        NDArray masks = null;
+                                        NDArray labels = null;
 
-            context.addAll(negative);
-            for (int i = 0; i < maxLen - curLen; i++) {
+                                        long maxLen = 0;
+                                        for (NDList ndList :
+                                                ndLists) { // center, context, negative = ndList
+                                            maxLen =
+                                                    Math.max(
+                                                            maxLen,
+                                                            ndList.get(1).countNonzero().getLong()
+                                                                    + ndList.get(2).countNonzero().getLong());
+                                        }
+                                        for (NDList ndList :
+                                                ndLists) { // center, context, negative = ndList
+                                            NDArray center = ndList.get(0);
+                                            NDArray context = ndList.get(1);
+                                            NDArray negative = ndList.get(2);
+
+                                            NDArray contextNegative = null;
+                                            NDArray mask = null;
+                                            NDArray label = null;
+                                            for (int i = 0; i < context.size(); i++) {
+                                                // If a 0 is found, we want to stop adding these
+                                                // values to NDArray
+                                                if (context.get(i).getInt() == 0) {
+                                                    break;
+                                                }
+                                                contextNegative =
+                                                        contextNegative != null
+                                                                ? contextNegative.concat(
+                                                                        context.get(i).reshape(1))
+                                                                : context.get(i).reshape(1);
+                                                mask =
+                                                        mask != null
+                                                                ? mask.concat(
+                                                                        manager.create(1)
+                                                                                .reshape(1))
+                                                                : manager.create(1).reshape(1);
+                                                label =
+                                                        label != null
+                                                                ? label.concat(
+                                                                        manager.create(1)
+                                                                                .reshape(1))
+                                                                : manager.create(1).reshape(1);
+                                            }
+                                            for (int i = 0; i < negative.size(); i++) {
+                                                // If a 0 is found, we want to stop adding these
+                                                // values to NDArray
+                                                if (negative.get(i).getInt() == 0) {
+                                                    break;
+                                                }
+                                                contextNegative =
+                                                        contextNegative != null
+                                                                ? contextNegative.concat(
+                                                                        negative.get(i).reshape(1))
+                                                                : negative.get(i).reshape(1);
+                                                ;
+                                                mask =
+                                                        mask != null
+                                                                ? mask.concat(
+                                                                        manager.create(1)
+                                                                                .reshape(1))
+                                                                : manager.create(1).reshape(1);
+                                                label =
+                                                        label != null
+                                                                ? label.concat(
+                                                                        manager.create(0)
+                                                                                .reshape(1))
+                                                                : manager.create(0).reshape(1);
+                                            }
+                                            // Fill with zeroes remaining array
+                                            while (contextNegative.size() != maxLen) {
+                                                contextNegative =
+                                                        contextNegative != null
+                                                                ? contextNegative.concat(
+                                                                        manager.create(0)
+                                                                                .reshape(1))
+                                                                : manager.create(0).reshape(1);
+                                                ;
+                                                mask =
+                                                        mask != null
+                                                                ? mask.concat(
+                                                                        manager.create(0)
+                                                                                .reshape(1))
+                                                                : manager.create(0).reshape(1);
+                                                ;
+                                                label =
+                                                        label != null
+                                                                ? label.concat(
+                                                                        manager.create(0)
+                                                                                .reshape(1))
+                                                                : manager.create(0).reshape(1);
+                                                ;
+                                            }
+
+                                            // Add this NDArrays to output NDArrays
+                                            centers =
+                                                    centers != null
+                                                            ? centers.concat(
+                                                                    center.reshape(
+                                                                            1, center.size()))
+                                                            : center.reshape(1, center.size());
+                                            contextsNegatives =
+                                                    contextsNegatives != null
+                                                            ? contextsNegatives.concat(
+                                                                    contextNegative.reshape(
+                                                                            1,
+                                                                            contextNegative.size()))
+                                                            : contextNegative.reshape(
+                                                                    1, contextNegative.size());
+                                            masks =
+                                                    masks != null
+                                                            ? masks.concat(
+                                                                    mask.reshape(1, mask.size()))
+                                                            : mask.reshape(1, mask.size());
+                                            labels =
+                                                    labels != null
+                                                            ? labels.concat(
+                                                                    label.reshape(1, label.size()))
+                                                            : label.reshape(1, label.size());
+                                        }
+
+                                        return new NDList(
+                                                centers, contextsNegatives, masks, labels);
+                                    }
+
+                                    @Override
+                                    public NDList[] unbatchify(NDList ndList) {
+                                        return new NDList[0];
+                                    }
+                                })
+                        .setSampling(batchSize, false)
+                        .build();
+
+        return new Pair<>(dataset, vocab);
+    }
+
+    public static NDList convertNDArray(Object[] data, NDManager manager) {
+        ArrayList<Integer> centers = (ArrayList<Integer>) data[0];
+        ArrayList<ArrayList<Integer>> contexts = (ArrayList<ArrayList<Integer>>) data[1];
+        ArrayList<ArrayList<Integer>> negatives = (ArrayList<ArrayList<Integer>>) data[2];
+
+        // Create centers NDArray
+        NDArray centersNDArray = manager.create(centers.stream().mapToInt(i -> i).toArray());
+
+        // Create contexts NDArray
+        int maxLen = 0;
+        for (ArrayList<Integer> context : contexts) {
+            maxLen = Math.max(maxLen, context.size());
+        }
+        // Fill arrays with 0s to all have same lengths and be able to create NDArray
+        for (ArrayList<Integer> context : contexts) {
+            while (context.size() != maxLen) {
                 context.add(0);
             }
-            contextNegatives.add(centers);
-
-            ArrayList<Integer> temp = new ArrayList<>();
-            for (int i = 0; i < curLen; i++) {
-                temp.add(1);
-            }
-            for (int i = 0; i < maxLen - curLen; i++) {
-                temp.add(0);
-            }
-            masks.add(temp);
-
-            temp = new ArrayList<>();
-            for (int i = 0; i < context.size(); i++) {
-                temp.add(1);
-            }
-            for (int i = 0; i < maxLen - context.size(); i++) {
-                temp.add(0);
-            }
-            masks.add(temp);
         }
-        return new NDList(
-                manager.create(centers.stream().mapToInt(i -> i).toArray())
-                        .reshape(new Shape(-1, 1)),
+        NDArray contextsNDArray =
                 manager.create(
-                        contextNegatives.stream()
+                        contexts.stream()
                                 .map(u -> u.stream().mapToInt(i -> i).toArray())
-                                .toArray(int[][]::new)),
+                                .toArray(int[][]::new));
+
+        // Create negatives NDArray
+        maxLen = 0;
+        for (ArrayList<Integer> negative : negatives) {
+            maxLen = Math.max(maxLen, negative.size());
+        }
+        // Fill arrays with 0s to all have same lengths and be able to create NDArray
+        for (ArrayList<Integer> negative : negatives) {
+            while (negative.size() != maxLen) {
+                negative.add(0);
+            }
+        }
+        NDArray negativesNDArray =
                 manager.create(
-                        masks.stream()
+                        negatives.stream()
                                 .map(u -> u.stream().mapToInt(i -> i).toArray())
-                                .toArray(int[][]::new)),
-                manager.create(
-                        labels.stream()
-                                .map(u -> u.stream().mapToInt(i -> i).toArray())
-                                .toArray(int[][]::new)));
+                                .toArray(int[][]::new));
+
+        return new NDList(centersNDArray, contextsNDArray, negativesNDArray);
     }
+
+    //    public static NDList batchify(ArrayList<ArrayList<Object>> data, NDManager manager) {
+    //        int maxLen = 0;
+    //        for (ArrayList<Object> obj : data) {
+    //            ArrayList<Integer> c = (ArrayList<Integer>) obj.get(1);
+    //            ArrayList<Integer> n = (ArrayList<Integer>) obj.get(2);
+    //            maxLen = Math.max(maxLen, c.size() + n.size());
+    //        }
+    //        ArrayList<Integer> centers = new ArrayList<>();
+    //        ArrayList<ArrayList<Integer>> contextNegatives = new ArrayList<>();
+    //        ArrayList<ArrayList<Integer>> masks = new ArrayList<>();
+    //        ArrayList<ArrayList<Integer>> labels = new ArrayList<>();
+    //
+    //        for (ArrayList<Object> obj : data) {
+    //            int center = (int) obj.get(0);
+    //            ArrayList<Integer> context = (ArrayList<Integer>) obj.get(1);
+    //            ArrayList<Integer> negative = (ArrayList<Integer>) obj.get(1);
+    //            int curLen = context.size() + negative.size();
+    //            centers.add(center);
+    //
+    //            context.addAll(negative);
+    //            for (int i = 0; i < maxLen - curLen; i++) {
+    //                context.add(0);
+    //            }
+    //            contextNegatives.add(centers);
+    //
+    //            ArrayList<Integer> temp = new ArrayList<>();
+    //            for (int i = 0; i < curLen; i++) {
+    //                temp.add(1);
+    //            }
+    //            for (int i = 0; i < maxLen - curLen; i++) {
+    //                temp.add(0);
+    //            }
+    //            masks.add(temp);
+    //
+    //            temp = new ArrayList<>();
+    //            for (int i = 0; i < context.size(); i++) {
+    //                temp.add(1);
+    //            }
+    //            for (int i = 0; i < maxLen - context.size(); i++) {
+    //                temp.add(0);
+    //            }
+    //            labels.add(temp);
+    //        }
+    //        return new NDList(
+    //                manager.create(centers.stream().mapToInt(i -> i).toArray())
+    //                        .reshape(new Shape(-1, 1)),
+    //                manager.create(
+    //                        contextNegatives.stream()
+    //                                .map(u -> u.stream().mapToInt(i -> i).toArray())
+    //                                .toArray(int[][]::new)),
+    //                manager.create(
+    //                        masks.stream()
+    //                                .map(u -> u.stream().mapToInt(i -> i).toArray())
+    //                                .toArray(int[][]::new)),
+    //                manager.create(
+    //                        labels.stream()
+    //                                .map(u -> u.stream().mapToInt(i -> i).toArray())
+    //                                .toArray(int[][]::new)));
+    //    }
 
     public static ArrayList<ArrayList<Integer>> getNegatives(
             ArrayList<ArrayList<Integer>> allContexts, Integer[][] corpus, int K) {
         LinkedHashMap<Object, Integer> counter = Vocab.countCorpus2D(corpus);
         ArrayList<Double> samplingWeights = new ArrayList<>();
-        for (int i = 0; i < counter.size(); i++) {
-            samplingWeights.add(Math.pow(counter.get(i), .75));
+        for (Map.Entry<Object, Integer> entry : counter.entrySet()) {
+            samplingWeights.add(Math.pow(entry.getValue(), .75));
         }
         ArrayList<ArrayList<Integer>> allNegatives = new ArrayList<>();
         RandomGenerator generator = new RandomGenerator(samplingWeights);
@@ -207,8 +426,8 @@ public class Main {
                 if (!contexts.contains(neg)) {
                     negatives.add(neg);
                 }
-                allNegatives.add(negatives);
             }
+            allNegatives.add(negatives);
         }
         return allNegatives;
     }
@@ -226,7 +445,7 @@ public class Main {
             }
             centers.addAll(Arrays.asList(line));
             for (int i = 0; i < line.length; i++) { // Context window centered at i
-                int windowSize = new Random().nextInt(maxWindowSize - 1) + 1;
+                int windowSize = 1;//new Random().nextInt(maxWindowSize - 1) + 1;
                 List<Integer> indices =
                         IntStream.range(
                                         Math.max(0, i - windowSize),
@@ -235,11 +454,11 @@ public class Main {
                                 .collect(Collectors.toList());
                 // Exclude the central target word from the context words
                 indices.remove(indices.indexOf(i));
-                ArrayList<Integer> temp = new ArrayList<>();
+                ArrayList<Integer> context = new ArrayList<>();
                 for (Integer idx : indices) {
-                    temp.add(line[idx]);
+                    context.add(line[idx]);
                 }
-                contexts.add(temp);
+                contexts.add(context);
             }
         }
         return new Pair<>(centers, contexts);

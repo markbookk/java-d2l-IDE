@@ -11,7 +11,6 @@ public class Vocab {
     public Vocab(String[][] tokens, int minFreq, String[] reservedTokens) {
         // Sort according to frequencies
         LinkedHashMap<Object, Integer> counterObject = countCorpus2D(tokens);
-
         LinkedHashMap<String, Integer> counter = new LinkedHashMap<>();
         for (Map.Entry<Object, Integer> e : counterObject.entrySet()) {
             counter.put((String) e.getKey(), e.getValue());
@@ -75,11 +74,11 @@ public class Vocab {
     }
 
     /** Count token frequencies. */
-    public static LinkedHashMap<Object, Integer> countCorpus(String[] tokens) {
+    public static LinkedHashMap<Object, Integer> countCorpus(Object[] tokens) {
 
         LinkedHashMap<Object, Integer> counter = new LinkedHashMap<>();
         if (tokens.length != 0) {
-            for (String token : tokens) {
+            for (Object token : tokens) {
                 counter.put(token, counter.getOrDefault(token, 0) + 1);
             }
         }
