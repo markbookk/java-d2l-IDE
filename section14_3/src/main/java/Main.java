@@ -7,7 +7,8 @@ import ai.djl.ndarray.types.Shape;
 import ai.djl.nn.AbstractBlock;
 import ai.djl.nn.Parameter;
 import ai.djl.training.*;
-import ai.djl.training.dataset.*;
+import ai.djl.training.dataset.ArrayDataset;
+import ai.djl.training.dataset.Batch;
 import ai.djl.training.listener.TrainingListener;
 import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
@@ -16,11 +17,11 @@ import ai.djl.translate.Batchifier;
 import ai.djl.translate.TranslateException;
 import ai.djl.util.Pair;
 import ai.djl.util.ZipUtils;
-import tech.tablesaw.plotly.components.*;
+import tech.tablesaw.plotly.components.Axis;
+import tech.tablesaw.plotly.components.Layout;
 import tech.tablesaw.plotly.traces.HistogramTrace;
 
 import java.io.*;
-import java.lang.reflect.Array;
 import java.net.URL;
 import java.nio.file.Paths;
 import java.util.*;
@@ -108,25 +109,6 @@ public class Main {
 
         ArrayList<ArrayList<Integer>> allNegatives = getNegatives(allContexts, corpus, 5);
 
-        //        ArrayList<Object> x1 = new ArrayList<>();
-        //        x1.add(1);
-        //        ArrayList<Integer> temp = new ArrayList<>();
-        //        Collections.addAll(temp, new Integer[] {2, 2});
-        //        x1.add(temp);
-        //        Collections.addAll(temp, new Integer[] {3, 3, 3, 3});
-        //        x1.add(temp);
-        //
-        //        ArrayList<Object> x2 = new ArrayList<>();
-        //        x2.add(1);
-        //        temp = new ArrayList<>();
-        //        Collections.addAll(temp, new Integer[] {2, 2, 2});
-        //        x2.add(temp);
-        //        Collections.addAll(temp, new Integer[] {3, 3});
-        //        x2.add(temp);
-        //
-        //        ArrayList<ArrayList<Object>> data = new ArrayList<>();
-        //        data.add(x1);
-        //        data.add(x2);
         NDList x1 =
                 new NDList(
                         manager.create(new int[] {1}),
