@@ -11,21 +11,17 @@ import ai.djl.nn.core.Embedding;
 import ai.djl.training.*;
 import ai.djl.training.dataset.*;
 import ai.djl.training.evaluator.Accuracy;
-import ai.djl.training.initializer.NormalInitializer;
 import ai.djl.training.listener.TrainingListener;
-import ai.djl.training.loss.*;
+import ai.djl.training.loss.Loss;
+import ai.djl.training.loss.SigmoidBinaryCrossEntropyLoss;
 import ai.djl.training.optimizer.Optimizer;
 import ai.djl.training.tracker.Tracker;
 import ai.djl.translate.Batchifier;
 import ai.djl.translate.TranslateException;
 import ai.djl.util.Pair;
 import ai.djl.util.ZipUtils;
-import tech.tablesaw.plotly.components.Axis;
-import tech.tablesaw.plotly.components.Layout;
-import tech.tablesaw.plotly.traces.HistogramTrace;
 
 import java.io.*;
-import java.lang.reflect.Array;
 import java.net.URL;
 import java.nio.file.Paths;
 import java.util.*;
@@ -112,20 +108,10 @@ public class Main {
                         .addTrainingListeners(TrainingListener.Defaults.logging()); // Logging
 
         Trainer trainer = model.newTrainer(config);
-
-//        Iterator<Batch> dataIter = dataset.getData(manager).iterator();
-//        Iterator<Batch> dataIter = dataset.getData(manager).iterator();
-        // Count batches
-//        int numBatches = 0;
-        //        for (Batch batch : dataIter) {
-        //            System.out.println(1);
-        //            numBatches += 1;
-        //        }
         Accumulator metric = new Accumulator(2);
         StopWatch stopWatch = new StopWatch();
         for (int epoch = 0; epoch < numEpochs; epoch++) {
             stopWatch.start();
-            //            for (Batch batch : dataIter) {
             try (NDManager childManager = manager.newSubManager()) {
                 Iterator<Batch> dataIter = dataset.getData(childManager).iterator();
                 int i = 0;
@@ -163,6 +149,7 @@ public class Main {
                     //                }
                     System.out.println("Trainer step: " + i);
                     i += 1;
+                    batch.getManager().close();
                 }
             }
             System.out.format(
