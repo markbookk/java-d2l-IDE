@@ -1,6 +1,4 @@
 import org.apache.commons.math3.distribution.EnumeratedDistribution;
-import org.apache.commons.math3.distribution.EnumeratedIntegerDistribution;
-import org.apache.commons.math3.util.Pair;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -12,7 +10,7 @@ public class RandomGenerator {
     private List<Integer> population;
     private List<Double> samplingWeights;
     private List<Integer> candidates;
-    private List<Pair<Integer, Double>> pmf;
+    private List<org.apache.commons.math3.util.Pair<Integer, Double>> pmf;
     private int i;
 
     public RandomGenerator(List<Double> samplingWeights) {
@@ -24,7 +22,7 @@ public class RandomGenerator {
 
         this.pmf = new ArrayList<>();
         for (int i = 0; i < samplingWeights.size(); i++) {
-            this.pmf.add(new Pair(this.population.get(i), this.samplingWeights.get(i).doubleValue()));
+            this.pmf.add(new org.apache.commons.math3.util.Pair(this.population.get(i), this.samplingWeights.get(i).doubleValue()));
         }
     }
 

@@ -170,27 +170,27 @@ public class Main {
                                         return new NDList[0];
                                     }
                                 })
-                        .setSampling(batchSize, false)
+                        .setSampling(batchSize, true)
                         .build();
 
         return new Pair<>(dataset, vocab);
     }
 
-    public static NDList batchifyData(NDList[] ndLists) {
+    public static NDList batchifyData(NDList[] data) {
         NDArray centers = null;
         NDArray contextsNegatives = null;
         NDArray masks = null;
         NDArray labels = null;
 
         long maxLen = 0;
-        for (NDList ndList : ndLists) { // center, context, negative = ndList
+        for (NDList ndList : data) { // center, context, negative = ndList
             maxLen =
                     Math.max(
                             maxLen,
                             ndList.get(1).countNonzero().getLong()
                                     + ndList.get(2).countNonzero().getLong());
         }
-        for (NDList ndList : ndLists) { // center, context, negative = ndList
+        for (NDList ndList : data) { // center, context, negative = ndList
             NDArray center = ndList.get(0);
             NDArray context = ndList.get(1);
             NDArray negative = ndList.get(2);
@@ -429,9 +429,7 @@ public class Main {
     public static boolean keep(
             String token, LinkedHashMap<Object, Integer> counter, int numTokens) {
         // Return True if to keep this token during subsampling
-        //        return new Random().nextFloat() < Math.sqrt(1e-4 / counter.get(token) *
-        // numTokens);
-        return 0.5f < Math.sqrt(1e-4 / counter.get(token) * numTokens);
+        return new Random().nextFloat() < Math.sqrt(1e-4 / counter.get(token) * numTokens);
     }
 
     public static String compareCounts(String token, String[][] sentences, String[][] subsampled) {
