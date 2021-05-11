@@ -195,18 +195,17 @@ public class Main {
             NDArray context = ndList.get(1);
             NDArray negative = ndList.get(2);
 
-            NDList contextNegative = new NDList();
-            NDList mask = new NDList();
-            NDList label = new NDList();
+            int count = 0;
             for (int i = 0; i < context.size(); i++) {
                 // If a 0 is found, we want to stop adding these
                 // values to NDArray
                 if (context.get(i).getInt() == 0) {
                     break;
                 }
-                contextNegative.add(context.get(i).reshape(1));
-                mask.add(manager.create(1).reshape(1));
-                label.add(manager.create(1).reshape(1));
+                contextsNegatives.add(context.get(i).reshape(1));
+                masks.add(manager.create(1).reshape(1));
+                labels.add(manager.create(1).reshape(1));
+                count += 1;
             }
             for (int i = 0; i < negative.size(); i++) {
                 // If a 0 is found, we want to stop adding these
@@ -214,25 +213,27 @@ public class Main {
                 if (negative.get(i).getInt() == 0) {
                     break;
                 }
-                contextNegative.add(negative.get(i).reshape(1));
-                mask.add(manager.create(1).reshape(1));
-                label.add(manager.create(0).reshape(1));
+                contextsNegatives.add(negative.get(i).reshape(1));
+                masks.add(manager.create(1).reshape(1));
+                labels.add(manager.create(0).reshape(1));
+                count += 1;
             }
             // Fill with zeroes remaining array
-            while (contextNegative.size() != maxLen) {
-                contextNegative.add(manager.create(0).reshape(1));
-                mask.add(manager.create(0).reshape(1));
-                label.add(manager.create(0).reshape(1));
+            while (count != maxLen) {
+                contextsNegatives.add(manager.create(0).reshape(1));
+                masks.add(manager.create(0).reshape(1));
+                labels.add(manager.create(0).reshape(1));
+                count += 1;
             }
 
             // Add this NDArrays to output NDArrays
-            centers.add(NDArrays.concat(new NDList(center.reshape(1))));
-            contextsNegatives.add(NDArrays.concat(contextNegative));
-            masks.add(NDArrays.concat(mask));
-            labels.add(NDArrays.concat(label));
+            centers.add(center.reshape(1));
         }
-
-        return new NDList(NDArrays.stack(centers), NDArrays.stack(contextsNegatives), NDArrays.stack(masks), NDArrays.stack(labels));
+        return new NDList(
+                NDArrays.concat(centers).reshape(data.length, -1),
+                NDArrays.concat(contextsNegatives).reshape(data.length, -1),
+                NDArrays.concat(masks).reshape(data.length, -1),
+                NDArrays.concat(labels).reshape(data.length, -1));
     }
 
     public static NDList convertNDArray(Object[] data, NDManager manager) {
